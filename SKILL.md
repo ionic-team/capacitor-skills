@@ -1,6 +1,6 @@
 ---
 name: capacitor-plugin-dev
-description: Use this skill when the user asks to "create a Capacitor plugin", "build a native plugin", "develop Capacitor plugin", "scaffold plugin", "gather plugin requirements", or mentions working with Capacitor native bridges, iOS plugins, Android plugins, @capacitor/core, or plugin development. Guides comprehensive Capacitor plugin development including requirements gathering, architecture design, TypeScript API creation, native iOS/Android implementations, build configuration, and testing strategies.
+description: Use this skill when the user asks to "create a Capacitor plugin", "build a native plugin", "develop Capacitor plugin", "scaffold plugin", "gather plugin requirements", "convert Cordova plugin", "migrate Cordova plugin to Capacitor", "convert this Cordova plugin", "Cordova to Capacitor migration", or mentions working with Capacitor native bridges, iOS plugins, Android plugins, @capacitor/core, plugin development, or converting/migrating from Cordova. Guides comprehensive Capacitor plugin development including requirements gathering, architecture design, TypeScript API creation, native iOS/Android implementations, build configuration, testing strategies, and Cordova-to-Capacitor migrations.
 version: 1.0.0
 ---
 
@@ -24,6 +24,322 @@ This skill guides the complete lifecycle of Capacitor plugin development, from g
 - Web-only features that don't require native bridges
 - Modifying existing Capacitor core plugins
 - General iOS or Android app development without Capacitor context
+
+---
+
+## Special Case: Converting Cordova Plugins to Capacitor
+
+When converting an existing Cordova plugin to Capacitor, follow this specialized workflow to maximize automation and minimize user questions.
+
+### Pre-Conversion Analysis
+
+**CRITICAL: Analyze the Cordova plugin first** before asking the user questions. Use the `cordova-capacitor-plugin-migration` skill to understand:
+
+1. **Plugin structure and configuration** (`plugin.xml`)
+   - Plugin ID, name, and version
+   - Platform support (iOS, Android, web)
+   - Native class names and package IDs
+   - Required permissions and features
+   - Dependencies and frameworks
+
+2. **JavaScript API** (`www/*.js` files)
+   - Public methods and their signatures
+   - Parameter types and return values
+   - Error handling patterns
+   - Event listeners and callbacks
+
+3. **Native implementations**
+   - iOS: Objective-C or Swift files
+   - Android: Java or Kotlin files
+   - Native method signatures
+   - Business logic and algorithms
+
+### Requirements Extraction Strategy
+
+**Extract as much information as possible from the Cordova plugin** before asking the user:
+
+✅ **Auto-derive from Cordova plugin:**
+- Plugin name → Capacitor plugin name (convert format)
+- Plugin ID → Capacitor package ID
+- Native class names → Capacitor class names
+- Method signatures → TypeScript API definitions
+- Permissions from `plugin.xml` → Capacitor permission strings
+- Platform support → iOS/Android implementation needs
+- Dependencies → Package.swift / build.gradle dependencies
+
+❌ **Only ask the user when:**
+- Ambiguous naming (multiple valid conversions)
+- Missing configuration (author, license, repository)
+- Language preference for conversion (Java→Kotlin, Objective-C→Swift)
+- New features to add during conversion
+- Deprecated APIs that need modern alternatives
+
+### Conversion Workflow
+
+#### Step 1: Analyze Cordova Plugin
+```bash
+# First, understand the existing plugin structure
+# Use cordova-capacitor-plugin-migration skill to examine:
+# - plugin.xml
+# - www/*.js files
+# - iOS native files (*.m, *.h, *.swift)
+# - Android native files (*.java, *.kt)
+```
+
+#### Step 2: Derive Requirements
+Extract and document:
+- **Plugin identity**: name, ID, version, description
+- **API surface**: methods, parameters, return types, events
+- **Platform support**: iOS, Android, web implementations
+- **Permissions**: camera, location, storage, etc.
+- **Dependencies**: native frameworks, libraries
+- **Language**: Current language (Java/Kotlin, Obj-C/Swift)
+
+#### Step 3: Plan Conversion
+Present to user:
+```
+Based on the Cordova plugin analysis:
+
+Plugin Name: cordova-plugin-battery-status
+Proposed Capacitor Name: @company/capacitor-battery-status
+Package ID: com.example.batterystatus
+Class Name: BatteryStatus
+
+API Methods Found:
+- getBatteryStatus() → Promise<BatteryInfo>
+- startMonitoring() → void
+- stopMonitoring() → void
+
+Platforms: iOS (Swift), Android (Java)
+Permissions: None required
+
+Conversion Options:
+1. Keep Java → Java (minimal changes)
+2. Convert Java → Kotlin (recommended, modern)
+3. Keep Swift → Swift (already modern)
+
+Which conversion approach do you prefer?
+```
+
+#### Step 4: Scaffold Capacitor Plugin
+Use gathered information with `npm init @capacitor/plugin`:
+```bash
+npm init @capacitor/plugin capacitor-battery-status -- \
+  --name "@company/capacitor-battery-status" \
+  --package-id "com.example.batterystatus" \
+  --class-name "BatteryStatus" \
+  --description "Access device battery level and charging status" \
+  --author "Company Name <email@company.com>" \
+  --license "MIT" \
+  --repo "https://github.com/company/capacitor-battery-status" \
+  --android-lang "kotlin"
+```
+
+#### Step 5: Migrate Code
+Port the implementation with these priorities:
+
+1. **TypeScript API** - Convert Cordova JS API to Capacitor definitions
+   - `exec(success, error, "PluginName", "methodName", [args])` → `async methodName(args): Promise<Result>`
+   - Callbacks → Promises
+   - Events → `addListener()` pattern
+
+2. **iOS Native** - Port Objective-C/Swift to modern Swift
+   - `CDVPlugin` → `CAPPlugin` / `CAPBridgedPlugin`
+   - `CDVPluginResult` → `call.resolve()` / `call.reject()`
+   - `-[methodName:]` → `@objc func methodName(_ call: CAPPluginCall)`
+
+3. **Android Native** - Port Java/Kotlin to Capacitor pattern
+   - `CordovaPlugin` → `Plugin` with `@CapacitorPlugin`
+   - `CallbackContext` → `PluginCall`
+   - `execute()` method → `@PluginMethod` annotations
+   - Language conversion if needed (Java → Kotlin)
+
+#### Step 6: CRITICAL - Run Verification Scripts
+
+**MANDATORY: Always run verify scripts after conversion**, especially when converting languages:
+
+```bash
+# Auto-format all code
+npm run fmt
+
+# Verify all platforms build successfully
+npm run verify
+
+# This ensures:
+# - TypeScript compiles correctly
+# - iOS Swift builds without errors
+# - Android Kotlin/Java builds without errors
+# - Language conversions are syntactically correct
+```
+
+**Why this is critical:**
+- ❌ Java→Kotlin conversions may have syntax errors
+- ❌ Objective-C→Swift conversions need null-safety fixes
+- ❌ Cordova→Capacitor API changes may break builds
+- ✅ `verify` catches these issues immediately
+- ✅ Running early prevents cascading errors
+
+**Run verify at these checkpoints:**
+1. After initial scaffolding
+2. After porting TypeScript API
+3. After porting iOS native code
+4. After porting Android native code
+5. After any language conversion
+6. Before testing with example-app
+
+#### Step 7: Implement Comprehensive Example App Tests
+
+**MANDATORY: Implement test functionality for ALL converted features** in the plugin's `example-app` project.
+
+This serves dual purposes:
+1. ✅ Validates the conversion worked correctly
+2. ✅ Demonstrates proper Capacitor usage patterns to users
+
+**Implementation Requirements:**
+
+```typescript
+// example-app/src/js/example.js (or similar)
+import { BatteryStatus } from '@company/capacitor-battery-status';
+
+// Test EVERY method from the original Cordova plugin
+async function testAllFeatures() {
+  console.log('=== Testing Converted Plugin Features ===');
+
+  // Feature 1: getBatteryStatus()
+  try {
+    const status = await BatteryStatus.getBatteryStatus();
+    console.log('✅ getBatteryStatus():', status);
+    displayResult('Battery Status', status);
+  } catch (error) {
+    console.error('❌ getBatteryStatus() failed:', error);
+    displayError('Battery Status', error);
+  }
+
+  // Feature 2: startMonitoring()
+  try {
+    await BatteryStatus.startMonitoring();
+    console.log('✅ startMonitoring() started');
+    displayResult('Monitoring', { started: true });
+  } catch (error) {
+    console.error('❌ startMonitoring() failed:', error);
+    displayError('Monitoring', error);
+  }
+
+  // Feature 3: Event listeners (if applicable)
+  try {
+    await BatteryStatus.addListener('batteryChange', (info) => {
+      console.log('✅ batteryChange event:', info);
+      displayResult('Battery Event', info);
+    });
+    console.log('✅ Event listener registered');
+  } catch (error) {
+    console.error('❌ Event listener failed:', error);
+    displayError('Event Listener', error);
+  }
+
+  // Add test cases for ALL other methods...
+}
+
+// Create UI elements to trigger tests
+function setupTestUI() {
+  // Add buttons for each feature
+  addTestButton('Get Battery Status', () => BatteryStatus.getBatteryStatus());
+  addTestButton('Start Monitoring', () => BatteryStatus.startMonitoring());
+  addTestButton('Stop Monitoring', () => BatteryStatus.stopMonitoring());
+
+  // Add result display area
+  createResultDisplay();
+}
+
+// Run tests on load
+testAllFeatures();
+setupTestUI();
+```
+
+**Build and test on platforms:**
+```bash
+cd example-app
+npm install
+npx cap sync
+
+# Test on iOS
+npx cap open ios
+# Run in Xcode, interact with UI, check console logs
+
+# Test on Android
+npx cap open android
+# Run in Android Studio, interact with UI, check Logcat
+```
+
+**Example App Test Checklist:**
+
+For each Cordova plugin method:
+- [ ] Create a test function in example-app
+- [ ] Add UI button/trigger to invoke the method
+- [ ] Display results in the UI (not just console)
+- [ ] Test success cases
+- [ ] Test error cases (missing params, permission denied)
+- [ ] Add console logging for debugging
+- [ ] Verify on both iOS and Android
+- [ ] Test on real devices (not just simulators)
+- [ ] Compare behavior to original Cordova plugin
+
+**Why this is mandatory for conversions:**
+- ❌ Without tests, you can't verify the conversion is complete
+- ❌ Missing features may go unnoticed until production
+- ✅ Demonstrates to users how to migrate their code
+- ✅ Provides working reference implementation
+- ✅ Catches API design issues early
+- ✅ Validates platform parity (iOS vs Android)
+
+#### Step 8: Validate Parity
+Create a checklist comparing Cordova vs Capacitor:
+
+- [ ] All public methods ported
+- [ ] All events/listeners migrated
+- [ ] Permission handling equivalent
+- [ ] Error messages consistent
+- [ ] Platform-specific behavior preserved
+- [ ] Edge cases handled
+- [ ] **All features tested in example-app**
+- [ ] **Example-app demonstrates usage of ALL converted methods**
+- [ ] Example-app UI allows manual testing
+- [ ] Example-app console logs show success/error for each feature
+- [ ] Documentation updated
+- [ ] **All verify scripts pass**
+- [ ] Tested on real devices (not just simulators)
+- [ ] Behavior matches original Cordova plugin
+
+### Common Cordova→Capacitor Mappings
+
+| Cordova Pattern | Capacitor Pattern |
+|----------------|-------------------|
+| `exec(success, error, "Plugin", "method", [args])` | `await Plugin.method(args)` |
+| `CDVPlugin` | `CAPPlugin` / `CAPBridgedPlugin` |
+| `CDVPluginResult` | `call.resolve()` / `call.reject()` |
+| `CallbackContext` | `PluginCall` |
+| `plugin.xml` | `Package.swift` + `package.json` |
+| `<feature name="Plugin">` | `@CapacitorPlugin(name = "Plugin")` |
+| Callbacks | Promises |
+| `window.cordova.plugins.X` | `import { X } from '@company/capacitor-x'` |
+
+### Language Conversion Considerations
+
+**Java → Kotlin:**
+- Null safety (`String?` vs `String`)
+- Extension functions vs static methods
+- Data classes vs POJOs
+- Coroutines vs callbacks (optional enhancement)
+- **CRITICAL: Run `npm run verify:android` after conversion**
+
+**Objective-C → Swift:**
+- Optionals (`String?` vs `String`)
+- Modern Swift APIs (async/await available)
+- Memory management (ARC automatic)
+- Nullability annotations no longer needed
+- **CRITICAL: Run `npm run verify:ios` after conversion**
+
+**Verification is non-negotiable when converting languages** - automated builds catch syntax errors that manual review might miss.
 
 ---
 
