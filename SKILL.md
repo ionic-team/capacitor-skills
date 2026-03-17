@@ -1,5 +1,5 @@
 ---
-name: capacitor-plugin-skill
+name: capacitor-plugin-dev
 description: Use this skill when the user asks to "create a Capacitor plugin", "build a native plugin", "develop Capacitor plugin", "scaffold plugin", "gather plugin requirements", or mentions working with Capacitor native bridges, iOS plugins, Android plugins, @capacitor/core, or plugin development. Guides comprehensive Capacitor plugin development including requirements gathering, architecture design, TypeScript API creation, native iOS/Android implementations, build configuration, and testing strategies.
 version: 1.0.0
 ---
