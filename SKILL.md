@@ -46,53 +46,79 @@ If starting a new plugin from scratch, **gather all required information first**
 
 #### Step 1: Gather Plugin Information
 
-Ask the user for these details (or suggest based on context):
+**Use the AskUserQuestion tool** to gather all required information interactively. Ask questions in batches of 2-4 to avoid overwhelming the user.
 
-**1. Directory/Folder Name**
-- Where should the plugin be created?
-- Suggest: `capacitor-{feature}` or `capacitor-{company}-{feature}`
-- Examples: `capacitor-battery`, `capacitor-device-info`, `capacitor-acme-scanner`
+**Batch 1 - Plugin Identity (4 questions):**
 
-**2. Plugin Purpose**
-- What does this plugin do? (brief description)
-- Example: "Access device battery status"
+Use AskUserQuestion with these questions:
 
-**3. Organization/Company Name**
-- Is this for a company/organization?
-- Used for npm scope: `@company/plugin-name`
-- If personal: use username or leave unscoped
-- Examples: `@acme`, `@mycompany`, `@johndoe`
+1. **What is the plugin's purpose?**
+   - Header: "Purpose"
+   - Question: "What does this plugin do?"
+   - Options: Provide 2-3 common examples based on context, plus "Other"
+   - Description: This will be used for the plugin description
 
-**4. Plugin Name (Base Name)**
-- What should the plugin be called?
-- Extract from purpose (e.g., "battery" from "battery status")
-- **Avoid redundancy**: Use short, clear names
-- Examples: `battery`, `device-info`, `scanner` (NOT `battery-plugin`, `device-info-plugin`)
+2. **What should the folder/directory be named?**
+   - Header: "Folder Name"
+   - Question: "What folder should the plugin be created in?"
+   - Options: Suggest 2-3 based on purpose (e.g., `capacitor-battery`, `capacitor-device-info`)
+   - Description: The plugin will be created in this subdirectory
 
-**5. Class Name**
-- Derive from plugin name
-- **Critical**: Avoid stuttering! Don't add "Plugin" if it's already implied
-- Pattern: `{FeatureName}` (e.g., `Battery`, `DeviceInfo`, `Scanner`)
-- The generator will use this as-is, so `Battery` becomes `BatteryPlugin.swift` automatically
-- ❌ Bad: `BatteryPlugin` → creates `BatteryPluginPlugin.swift`
-- ✅ Good: `Battery` → creates `BatteryPlugin.swift`
+3. **Is this for an organization or company?**
+   - Header: "Organization"
+   - Question: "Is this plugin part of an organization?"
+   - Options:
+     - "Yes, for my company" (description: "Will use @company npm scope")
+     - "Yes, personal (@username)" (description: "Will use personal npm scope")
+     - "No, unscoped" (description: "Plugin name without @ scope")
+   - If "Yes", ask follow-up: "What is the organization/company name?"
 
-**6. Package ID (Reverse DNS)**
-- Format: `com.{company}.{pluginname}`
-- Use lowercase, no hyphens
-- Examples: `com.acme.battery`, `com.mycompany.deviceinfo`
+4. **What is the base plugin name?**
+   - Header: "Plugin Name"
+   - Question: "What should the plugin be called?"
+   - Options: Derive from purpose (e.g., "battery", "device-info", "scanner")
+   - Description: **Avoid redundancy** - use short names without "plugin" suffix
+   - Examples: `battery`, `device-info`, `scanner` (NOT `battery-plugin`)
 
-**7. Author Information**
-- Name and email
-- Example: `"John Doe <john@acme.com>"`
+**Batch 2 - Technical Details (4 questions):**
 
-**8. Repository URL**
-- Where will this be hosted?
-- Example: `https://github.com/acme/capacitor-battery`
+Use AskUserQuestion with these questions:
 
-**9. License**
-- Default: `MIT`
-- Other options: `Apache-2.0`, `BSD-3-Clause`, `ISC`
+5. **What is the class name?**
+   - Header: "Class Name"
+   - Question: "What should the native class be named?"
+   - Options: Derive from plugin name in PascalCase (e.g., "Battery", "DeviceInfo", "Scanner")
+   - Description: **CRITICAL**: Do NOT include "Plugin" suffix - the generator adds it automatically
+   - ❌ Bad: `BatteryPlugin` → creates `BatteryPluginPlugin.swift`
+   - ✅ Good: `Battery` → creates `BatteryPlugin.swift`
+
+6. **What is the package ID?**
+   - Header: "Package ID"
+   - Question: "What is the reverse-DNS package identifier?"
+   - Options: Suggest based on company/plugin name (e.g., `com.acme.battery`, `com.mycompany.deviceinfo`)
+   - Description: Format: `com.{company}.{pluginname}` (lowercase, no hyphens)
+
+7. **What Android language should be used?**
+   - Header: "Android Lang"
+   - Question: "Which language should be used for Android implementation?"
+   - Options:
+     - "Kotlin" (description: "Modern, recommended for new plugins")
+     - "Java" (description: "Traditional, wider compatibility")
+   - **Recommendation**: Kotlin (modern, null-safe, concise)
+
+8. **What license should be used?**
+   - Header: "License"
+   - Question: "Which license should the plugin use?"
+   - Options:
+     - "MIT" (description: "Permissive, most common")
+     - "Apache-2.0" (description: "Permissive with patent grant")
+     - "BSD-3-Clause" (description: "Permissive BSD license")
+     - "ISC" (description: "Simplified MIT alternative")
+
+9. **Additional metadata:**
+   - Ask for author information: "Name <email@company.com>"
+   - Ask for repository URL: "https://github.com/company/plugin-name"
+   - These can be text inputs or suggested based on git config
 
 #### Step 2: Build the Command
 
@@ -108,7 +134,8 @@ npm init @capacitor/plugin {folder-name} -- \
   --description "{description}" \
   --author "{name} <{email}>" \
   --license "{license}" \
-  --repo "{repo-url}"
+  --repo "{repo-url}" \
+  --android-lang "{kotlin|java}"
 ```
 
 #### Example: Battery Plugin
@@ -123,6 +150,7 @@ npm init @capacitor/plugin {folder-name} -- \
 - Author: `Jane Developer <jane@acme.com>`
 - Repo: `https://github.com/acme/capacitor-battery`
 - License: `MIT`
+- Android language: `kotlin`
 
 **Generated Command:**
 ```bash
@@ -133,7 +161,8 @@ npm init @capacitor/plugin capacitor-battery -- \
   --description "Access device battery level and charging status" \
   --author "Jane Developer <jane@acme.com>" \
   --license "MIT" \
-  --repo "https://github.com/acme/capacitor-battery"
+  --repo "https://github.com/acme/capacitor-battery" \
+  --android-lang "kotlin"
 ```
 
 **Result:** Creates `capacitor-battery/` directory with:
@@ -167,7 +196,8 @@ npm init @capacitor/plugin capacitor-battery -- \
   --description "Access device battery level and charging status" \
   --author "Jane Developer <jane@acme.com>" \
   --license "MIT" \
-  --repo "https://github.com/acme/capacitor-battery"
+  --repo "https://github.com/acme/capacitor-battery" \
+  --android-lang "kotlin"
 
 # The plugin is created in ./capacitor-battery/
 cd capacitor-battery
@@ -204,26 +234,47 @@ capacitor-battery/
 
 ### Phase 1: Requirements Gathering
 
-Before writing code, understand what the plugin needs to accomplish. Use these questions to guide discovery:
+Before writing code, understand what the plugin needs to accomplish. **Use AskUserQuestion for questions with clear options** (platform support, permission types, etc.), and ask open-ended questions in conversational text for technical details.
 
 #### Functional Requirements
-1. **What native capability does this plugin expose?**
+
+**Use AskUserQuestion for:**
+
+1. **What platforms need to be supported?**
+   - Header: "Platforms"
+   - Question: "Which platforms should this plugin support?"
+   - Options:
+     - "iOS and Android" (description: "Full native support on both platforms")
+     - "iOS only" (description: "iOS native, Android falls back to web")
+     - "Android only" (description: "Android native, iOS falls back to web")
+   - multiSelect: Consider allowing both to be selected if incremental implementation
+
+2. **What permissions are required?**
+   - Header: "Permissions"
+   - Question: "What platform permissions does this plugin need?"
+   - multiSelect: true
+   - Options based on common permissions:
+     - "Camera" (description: "Camera access - Info.plist + AndroidManifest")
+     - "Location" (description: "GPS/location services")
+     - "Photos/Gallery" (description: "Access to photo library")
+     - "Microphone" (description: "Audio recording")
+     - "None" (description: "No special permissions needed")
+
+**Ask conversationally:**
+
+3. **What native capability does this plugin expose?**
    - Example: "Access device battery status", "Scan QR codes", "Encrypt local data"
+   - This helps understand the core functionality
 
-2. **What platforms need to be supported?**
-   - iOS only, Android only, or both?
-   - Does it need a web implementation for testing?
-
-3. **What data flows between native and web?**
+4. **What data flows between native and web?**
    - Input parameters (types, validation requirements)
    - Return values (success data, error cases)
    - Events or callbacks needed?
 
-4. **What permissions are required?**
-   - iOS: Info.plist entries (camera, location, etc.)
-   - Android: AndroidManifest.xml permissions
-
 #### Technical Constraints
+
+**Ask conversationally:**
+
 5. **Are there platform-specific limitations?**
    - iOS-only APIs (e.g., ARKit)
    - Android-only features (e.g., NFC)
@@ -796,7 +847,8 @@ npm init @capacitor/plugin {folder-name} -- \
   --description "Plugin description" \
   --author "Your Name <email@company.com>" \
   --license "MIT" \
-  --repo "https://github.com/company/plugin-name"
+  --repo "https://github.com/company/plugin-name" \
+  --android-lang "kotlin"
 
 # Build plugin
 npm run build
@@ -913,6 +965,7 @@ After creating a plugin:
 | Problem | Solution |
 |---------|----------|
 | **"Refusing to prompt in non-TTY environment"** | Use `npm init @capacitor/plugin {folder-name} --` with all flags (see Phase 0) |
+| **"invalid option: --android-lang undefined"** | Add `--android-lang "kotlin"` or `--android-lang "java"` to the command |
 | Plugin not found | Run `npx cap sync` after installing |
 | iOS build fails | Check Package.swift and CAPBridgedPlugin implementation |
 | Android build fails | Verify `build.gradle` and package names |
@@ -935,16 +988,33 @@ After creating a plugin:
      --description "Description" \
      --author "Name <email>" \
      --license "MIT" \
-     --repo "https://github.com/..."
+     --repo "https://github.com/..." \
+     --android-lang "kotlin"
    ```
 
-2. **Enable debug logging**:
+2. **Missing --android-lang parameter**:
+   If you see "invalid option: --android-lang undefined: Must be either 'kotlin' or 'java'":
+   ```bash
+   # The --android-lang parameter is REQUIRED
+   npm init @capacitor/plugin my-plugin -- \
+     --name "@company/plugin" \
+     --package-id "com.company.plugin" \
+     --class-name "MyPlugin" \
+     --description "Description" \
+     --author "Name <email>" \
+     --license "MIT" \
+     --repo "https://github.com/..." \
+     --android-lang "kotlin"  # ← This is required!
+   ```
+   **Recommendation**: Use `"kotlin"` for new plugins (modern, null-safe, recommended by Capacitor team)
+
+3. **Enable debug logging**:
    ```typescript
    // iOS: Check Xcode console
    // Android: Check Logcat
    ```
 
-3. **Test platforms independently**:
+4. **Test platforms independently**:
    ```bash
    npx cap run ios
    npx cap run android
