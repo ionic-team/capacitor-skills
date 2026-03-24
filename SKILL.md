@@ -31,6 +31,15 @@ This skill guides the complete lifecycle of Capacitor plugin development, from g
 
 When converting an existing Cordova plugin to Capacitor, follow this specialized workflow to maximize automation and minimize user questions.
 
+**⚠️ CRITICAL FOR LARGE MIGRATIONS:**
+For complex plugins (>2000 LOC, >15 methods, multiple platforms with language conversions), you **MUST** use the incremental platform migration approach described in Step 5. Attempting to migrate all platforms simultaneously for large plugins leads to:
+- Overwhelming code changes that are difficult to review
+- Compound errors across platforms that are hard to debug
+- User frustration with long wait times between checkpoints
+- High risk of needing to rework multiple platforms if approach needs adjustment
+
+**Always assess complexity in Step 5 before starting migration work.**
+
 ### Pre-Conversion Analysis
 
 **CRITICAL: Analyze the Cordova plugin first** before asking the user questions. Use the `cordova-capacitor-plugin-migration` skill to understand:
@@ -135,8 +144,205 @@ npm init @capacitor/plugin capacitor-battery-status -- \
   --android-lang "kotlin"
 ```
 
-#### Step 5: Migrate Code
-Port the implementation with these priorities:
+#### Step 5: Assess Migration Complexity & Plan Approach
+
+Before starting code migration, evaluate the plugin's complexity to determine the best migration strategy.
+
+**Complexity Assessment Criteria:**
+
+- **Lines of Code**: Total LOC across all platforms
+- **Number of Methods**: Public API surface area
+- **Platform Support**: iOS + Android + Web vs. single platform
+- **Native Dependencies**: External frameworks, libraries
+- **Language Conversions**: Objective-C→Swift, Java→Kotlin
+- **Hook Complexity**: Number and complexity of hooks
+- **Business Logic Complexity**: Simple CRUD vs. complex algorithms
+
+**Migration Strategies:**
+
+**🟢 Simple Plugins (Migrate All Platforms Together)**
+
+Use when:
+- ✅ < 500 total lines of code
+- ✅ < 5 public API methods
+- ✅ Minimal native dependencies
+- ✅ No language conversions needed
+- ✅ No complex hooks
+
+**Approach:**
+1. Migrate TypeScript API
+2. Migrate iOS implementation
+3. Migrate Android implementation
+4. Verify all platforms together
+5. Test with example-app
+
+**Estimated Time:** 2-4 hours
+
+---
+
+**🟡 Moderate Plugins (Phased Migration Recommended)**
+
+Use when:
+- ⚠️ 500-2000 lines of code
+- ⚠️ 5-15 public API methods
+- ⚠️ Some native dependencies
+- ⚠️ Language conversion required
+- ⚠️ Some hooks to migrate
+
+**Approach:**
+1. Migrate TypeScript API (foundation for all platforms)
+2. **Choose one platform to complete first** (iOS or Android)
+3. Verify that platform builds and works
+4. **Pause for user inspection and approval**
+5. Migrate second platform
+6. Verify second platform
+7. Implement web fallback
+8. Final integration testing
+
+**Estimated Time:** 4-8 hours (with checkpoints)
+
+---
+
+**🔴 Complex Plugins (MUST Use Incremental Platform Migration)**
+
+Use when:
+- ❌ > 2000 lines of code
+- ❌ > 15 public API methods
+- ❌ Heavy native dependencies
+- ❌ Multiple language conversions
+- ❌ Complex hooks (Tier 3 blockers)
+- ❌ Platform-specific business logic
+
+**⚠️ MANDATORY APPROACH: Incremental Platform Migration**
+
+For complex plugins, attempting to migrate everything at once leads to:
+- Overwhelming code changes
+- Difficult debugging across platforms
+- High risk of missing issues
+- User frustration with long wait times
+- Compound errors that are hard to isolate
+
+**Required Workflow:**
+
+```markdown
+## Phase 1: TypeScript API Layer (Foundation)
+1. Scaffold plugin structure
+2. Create TypeScript definitions for ALL methods
+3. Implement web stub/mock implementation
+4. Verify TypeScript compiles: `npm run verify:web`
+5. **CHECKPOINT: User approval before native code**
+
+## Phase 2: iOS Implementation (First Platform)
+**Why iOS first?**
+- Swift is more modern and type-safe than Java
+- Xcode provides better error messages
+- iOS APIs are generally more consistent
+- CocoaPods/SPM dependency resolution is more reliable
+
+**Steps:**
+1. Migrate iOS native code ONLY
+2. Convert Objective-C → Swift if needed
+3. Add iOS dependencies to Package.swift
+4. Verify iOS builds: `npm run verify:ios`
+5. Update example-app with iOS test cases
+6. Test on iOS simulator
+7. Test on real iOS device (if available)
+8. **CHECKPOINT: Demonstrate working iOS implementation to user**
+9. **User approval required before proceeding to Android**
+
+**Deliverable:**
+- ✅ Fully functional iOS implementation
+- ✅ Verified with example-app on device
+- ✅ All iOS methods working correctly
+- ✅ User inspected and approved
+
+## Phase 3: Android Implementation (Second Platform)
+**Only proceed after iOS approval**
+
+**Steps:**
+1. Migrate Android native code ONLY
+2. Convert Java → Kotlin if needed
+3. Add Android dependencies to build.gradle
+4. Verify Android builds: `npm run verify:android`
+5. Update example-app with Android test cases
+6. Test on Android emulator
+7. Test on real Android device (if available)
+8. **CHECKPOINT: Demonstrate working Android implementation to user**
+9. **User approval required before finalization**
+
+**Deliverable:**
+- ✅ Fully functional Android implementation
+- ✅ Verified with example-app on device
+- ✅ All Android methods working correctly
+- ✅ Platform parity with iOS verified
+- ✅ User inspected and approved
+
+## Phase 4: Web Implementation & Documentation (Final)
+**Only after both native platforms approved**
+
+**Steps:**
+1. Enhance web implementation (if applicable)
+2. Update README with installation instructions
+3. Document platform-specific setup requirements
+4. Document hook migration steps (if applicable)
+5. Run full verification: `npm run verify`
+6. Final integration testing
+7. **CHECKPOINT: Final user review**
+
+**Deliverable:**
+- ✅ Complete plugin ready for use
+- ✅ Comprehensive documentation
+- ✅ All platforms tested and verified
+```
+
+**Why Incremental Migration is Critical for Complex Plugins:**
+
+✅ **Risk Mitigation**: Issues are isolated to one platform at a time
+✅ **User Confidence**: User sees working progress and can provide feedback early
+✅ **Debugging**: Easier to identify which platform has issues
+✅ **Course Correction**: User can request changes before all work is done
+✅ **Quality**: Each platform receives full attention and testing
+✅ **Avoiding Rework**: If approach needs adjustment, only one platform needs changes
+
+**Estimated Time:** 8-20+ hours (with multiple checkpoints)
+
+---
+
+**Decision Matrix:**
+
+| Plugin Characteristic | Simple 🟢 | Moderate 🟡 | Complex 🔴 |
+|-----------------------|-----------|-------------|------------|
+| Total LOC | < 500 | 500-2000 | > 2000 |
+| API Methods | < 5 | 5-15 | > 15 |
+| Native Dependencies | None/Few | Some | Many |
+| Language Conversions | None | One | Multiple |
+| Hooks | None | Convertible | Blockers |
+| Migration Approach | All-at-once | Phased | **Incremental** |
+| User Checkpoints | 1 (final) | 2-3 | **4-5 (required)** |
+
+---
+
+**Recommended Platform Order:**
+
+1. **TypeScript API** (always first - foundation)
+2. **iOS** (second - cleaner APIs, better tooling)
+3. **Android** (third - after iOS validates approach)
+4. **Web** (last - often simplest or mock implementation)
+
+**Alternative: Android-First Approach**
+
+Use Android-first when:
+- Plugin is Android-only
+- Team is more familiar with Android
+- iOS version is very simple
+- Android has more complex logic
+
+---
+
+#### Step 6: Migrate Code (Platform-by-Platform)
+
+**For Simple Plugins:**
+Port all platforms together with these priorities:
 
 1. **TypeScript API** - Convert Cordova JS API to Capacitor definitions
    - `exec(success, error, "PluginName", "methodName", [args])` → `async methodName(args): Promise<Result>`
@@ -154,7 +360,10 @@ Port the implementation with these priorities:
    - `execute()` method → `@PluginMethod` annotations
    - Language conversion if needed (Java → Kotlin)
 
-#### Step 6: CRITICAL - Run Verification Scripts
+**For Moderate/Complex Plugins:**
+Follow the incremental platform migration approach described in Step 5, migrating one platform completely before starting the next.
+
+#### Step 7: CRITICAL - Run Verification Scripts
 
 **MANDATORY: Always run verify scripts after conversion**, especially when converting languages:
 
@@ -180,6 +389,8 @@ npm run verify
 - ✅ Running early prevents cascading errors
 
 **Run verify at these checkpoints:**
+
+**For Simple Plugins (all-at-once migration):**
 1. After initial scaffolding
 2. After porting TypeScript API
 3. After porting iOS native code
@@ -187,7 +398,17 @@ npm run verify
 5. After any language conversion
 6. Before testing with example-app
 
-#### Step 7: Implement Comprehensive Example App Tests
+**For Moderate/Complex Plugins (incremental migration):**
+1. After initial scaffolding → `npm run verify:web`
+2. After porting TypeScript API → `npm run verify:web`
+3. After porting iOS native code → `npm run verify:ios`
+4. **Before user checkpoint** → `npm run verify:ios` + test with example-app
+5. After porting Android native code → `npm run verify:android`
+6. **Before user checkpoint** → `npm run verify:android` + test with example-app
+7. After web implementation → `npm run verify` (all platforms)
+8. **Before final delivery** → Full integration testing
+
+#### Step 8: Implement Comprehensive Example App Tests
 
 **MANDATORY: Implement test functionality for ALL converted features** in the plugin's `example-app` project.
 
@@ -292,8 +513,10 @@ For each Cordova plugin method:
 - ✅ Catches API design issues early
 - ✅ Validates platform parity (iOS vs Android)
 
-#### Step 8: Validate Parity
-Create a checklist comparing Cordova vs Capacitor:
+#### Step 9: Validate Parity
+
+**For Simple Plugins:**
+Create a checklist comparing Cordova vs Capacitor after completing all platforms:
 
 - [ ] All public methods ported
 - [ ] All events/listeners migrated
@@ -309,6 +532,45 @@ Create a checklist comparing Cordova vs Capacitor:
 - [ ] **All verify scripts pass**
 - [ ] Tested on real devices (not just simulators)
 - [ ] Behavior matches original Cordova plugin
+
+**For Moderate/Complex Plugins (Incremental Migration):**
+Validate parity **incrementally at each checkpoint**:
+
+**After iOS Implementation (Checkpoint 1):**
+- [ ] All iOS methods ported and functional
+- [ ] iOS permission handling equivalent
+- [ ] iOS error messages consistent
+- [ ] iOS platform-specific behavior preserved
+- [ ] **iOS features tested in example-app on iOS device**
+- [ ] `npm run verify:ios` passes
+- [ ] iOS behavior matches original Cordova plugin
+- [ ] **USER APPROVED BEFORE CONTINUING**
+
+**After Android Implementation (Checkpoint 2):**
+- [ ] All Android methods ported and functional
+- [ ] Android permission handling equivalent
+- [ ] Android error messages consistent
+- [ ] Android platform-specific behavior preserved
+- [ ] **Android features tested in example-app on Android device**
+- [ ] `npm run verify:android` passes
+- [ ] **Platform parity: iOS and Android behave consistently**
+- [ ] Android behavior matches original Cordova plugin
+- [ ] **USER APPROVED BEFORE CONTINUING**
+
+**After Web Implementation (Final Checkpoint):**
+- [ ] Web fallback/mock implementation complete
+- [ ] All events/listeners migrated across all platforms
+- [ ] Documentation updated with platform-specific notes
+- [ ] Example-app UI demonstrates ALL methods on ALL platforms
+- [ ] `npm run verify` (all platforms) passes
+- [ ] Full integration testing complete
+- [ ] **USER FINAL APPROVAL**
+
+**Why Incremental Validation Matters:**
+- ✅ Catches issues early when they're easier to fix
+- ✅ User sees tangible progress and can provide feedback
+- ✅ Reduces risk of compound errors across platforms
+- ✅ Allows course correction before investing in next platform
 
 ### Common Cordova→Capacitor Mappings
 
