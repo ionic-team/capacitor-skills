@@ -1,0 +1,138 @@
+# input-contract.example.yml
+#
+# Example structured input for the `capacitor-plugin-generator` skill (RMET-5133).
+# Produced by: `cordova-capacitor-plugin-migration` (RMET-5147) OR authored by hand.
+# Consumed by: `capacitor-plugin-generator`.
+#
+# The base contract (plugin, platforms, api, permissions, dependencies) is REQUIRED.
+# The `migration:` block is OPTIONAL — present only when the input is produced by
+# the migration skill. Humans invoking the generator conversationally never touch
+# this file; they answer elicitation questions and the skill fills the shape internally.
+#
+# This example describes a Capacitor version of the Cordova screen-orientation plugin,
+# matching the worked example in the Capacitor Plugin Tutorial.
+# https://capacitorjs.com/docs/plugins/tutorial/introduction
+
+# ─────────────────────────────────────────────────────────
+# Plugin identity
+# ─────────────────────────────────────────────────────────
+plugin:
+  name: screen-orientation
+  package_id: com.example.screenorientation
+  class_name: ScreenOrientation
+  description: Lock and unlock device screen orientation
+  repo_url: https://github.com/example/capacitor-screen-orientation
+  license: MIT
+
+# ─────────────────────────────────────────────────────────
+# Target platforms
+# ─────────────────────────────────────────────────────────
+platforms: [ios, android, web]
+
+# ─────────────────────────────────────────────────────────
+# TypeScript API — drives src/definitions.ts and the native bridge
+# ─────────────────────────────────────────────────────────
+api:
+  methods:
+    - name: orientation
+      returns: Promise<OrientationResult>
+      jsdoc: Returns the device's current orientation.
+      since: "1.0.0"
+
+    - name: lock
+      options: OrientationLockOptions
+      returns: Promise<void>
+      jsdoc: Locks the screen to the given orientation.
+      since: "1.0.0"
+
+    - name: unlock
+      returns: Promise<void>
+      jsdoc: Unlocks screen orientation rotation.
+      since: "1.0.0"
+
+  # Types use string unions, never TS enums.
+  types:
+    - name: OrientationType
+      kind: union
+      values:
+        - landscape-primary
+        - landscape-secondary
+        - portrait-primary
+        - portrait-secondary
+
+    - name: OrientationResult
+      kind: interface
+      fields:
+        - { name: type, type: OrientationType }
+
+    - name: OrientationLockOptions
+      kind: interface
+      fields:
+        - { name: orientation, type: OrientationType }
+
+  # Optional. Event name strings are identical across TS / web / iOS / Android.
+  events:
+    - name: screenOrientationChange
+      payload: OrientationResult
+      jsdoc: Fired when the device orientation changes.
+
+# ─────────────────────────────────────────────────────────
+# Permissions (optional per platform)
+# ─────────────────────────────────────────────────────────
+permissions:
+  ios: []
+  android: []
+
+# ─────────────────────────────────────────────────────────
+# Native dependencies (optional)
+# ─────────────────────────────────────────────────────────
+dependencies:
+  ios:
+    cocoapods: []
+    spm: []
+    system_frameworks: [UIKit]
+  android:
+    gradle: []
+    maven_repos: []
+
+# ─────────────────────────────────────────────────────────
+# Migration metadata — OPTIONAL.
+# Present only when produced by `migrating-cordova-plugins-to-capacitor`.
+# Humans omit this block entirely.
+# ─────────────────────────────────────────────────────────
+migration:
+  source: cordova
+  complexity: moderate              # simple | moderate | complex
+  output_mode: side_by_side         # side_by_side | in_place
+
+  # Must be empty to proceed. Non-empty halts the generator.
+  blockers: []
+
+  warnings:
+    - "plugin.xml uses <framework> for UIKit — system framework, auto-linked"
+
+  # Recommended modernizations detected during analysis.
+  language_modernization:
+    ios: { from: objective_c, to: swift }
+    android: { from: java, to: kotlin }
+
+  # The generator uses these for native implementation reference.
+  # Avoids re-inspection of the original Cordova source.
+  source_files:
+    ios: [src/ios/CDVScreenOrientation.m]
+    android: [src/android/ScreenOrientation.java]
+    js: [www/screenorientation.js]
+
+  # Three-tier hook classification.
+  # tier_3 must be empty to proceed — it represents non-convertible hooks.
+  hooks:
+    tier_1: []   # convertible to Capacitor hooks
+    tier_2: []   # convertible to npm scripts
+    tier_3: []   # blockers
+
+  # Method-level map: Cordova signature → proposed Capacitor signature.
+  cordova_to_capacitor_map:
+    - cordova: ScreenOrientation.setOrientation(value, success, error)
+      capacitor: ScreenOrientation.lock({ orientation })
+    - cordova: ScreenOrientation.unlockOrientation()
+      capacitor: ScreenOrientation.unlock()

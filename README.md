@@ -4,23 +4,23 @@ A catalog of agent skills for working with Ionic and Capacitor framework project
 
 ## Overview
 
-This repository contains specialized skills that enhance Claude Code's capabilities when developing Capacitor plugins and migrating Cordova plugins to Capacitor. These skills provide comprehensive guidance, best practices, and automated workflows for native mobile plugin development.
+This repository contains specialized skills that enhance Claude Code's capabilities when generating Capacitor plugin candidates and analyzing Cordova plugins for Capacitor migration. These skills provide focused guidance, best practices, and structured workflows for native mobile plugin development.
 
 ## Available Skills
 
-### capacitor-plugin-development
+### capacitor-plugin-generator
 
-Guides the complete lifecycle of Capacitor plugin development, from requirements gathering through implementation and testing. This skill helps you:
+Generates new Capacitor plugin scaffolds and first-pass implementations from conversational requirements or a structured YAML input contract. This skill helps you:
 
 - Create new Capacitor plugins from scratch
-- Design plugin architecture and API contracts
-- Implement native code for iOS (Swift) and Android (Kotlin/Java)
+- Design contract-first TypeScript APIs
+- Implement native code for iOS (Swift) and Android (Java by default, Kotlin when selected)
 - Bridge native APIs to JavaScript/TypeScript
-- Set up plugin configuration and build systems
-- Write tests for Capacitor plugins
-- Convert Cordova plugins to Capacitor
+- Implement the WebPlugin layer
+- Generate a sample app that exercises the plugin API
+- Run docgen, verify commands, and dry-run publish checks
 
-**Use when:** Creating custom native functionality, building plugin bridges, or converting existing Cordova plugins.
+**Use when:** Generating a new Capacitor plugin candidate from human intent or from YAML produced by the migration analyzer. This skill does not analyze Cordova source or produce production-ready code without human review.
 
 ### cordova-capacitor-plugin-migration
 
@@ -40,11 +40,11 @@ Install skills directly from this repository using [skills.sh](https://skills.sh
 
 ```bash
 # Install all skills from this repository
-npx skills add ionic-team/skills
+npx skills add ionic-team/capacitor-skills
 
 # Or install a specific skill
-npx skills add ionic-team/skills/capacitor-plugin-development
-npx skills add ionic-team/skills/cordova-capacitor-plugin-migration
+npx skills add ionic-team/capacitor-skills/capacitor-plugin-generator
+npx skills add ionic-team/capacitor-skills/cordova-capacitor-plugin-migration
 ```
 
 ## Local Development
@@ -69,11 +69,11 @@ Run the script again to toggle between enabled and disabled states.
 
 ## Usage
 
-Once installed, these skills are automatically available. Simply mention plugin development or migration tasks in your prompts:
+Once installed, these skills are automatically available. Mention plugin generation or migration analysis tasks in your prompts:
 
 ```
 "Create a Capacitor plugin for accessing device battery information"
-"Migrate this Cordova plugin to Capacitor"
+"Use this YAML contract to generate a Capacitor plugin"
 "Analyze the migration complexity of cordova-plugin-camera"
 ```
 

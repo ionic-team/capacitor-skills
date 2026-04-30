@@ -228,21 +228,21 @@ Key Transformations:
 
 ## Next Steps
 
-This analysis is ready to feed into the **capacitor-plugin-dev** skill for implementation.
+This analysis is ready to feed into the **capacitor-plugin-generator** skill for implementation.
 
 **Recommended Workflow:**
 
 **For Simple/Moderate Plugins:**
 1. Review migration blockers and plan workarounds
-2. Use `capacitor-plugin-dev` skill to scaffold the Capacitor plugin
+2. Use `capacitor-plugin-generator` skill to scaffold the Capacitor plugin
 3. Implement TypeScript API based on the mapping above
 4. Implement native iOS/Android code following the architecture transformation
 5. Document manual configuration steps for users
 
 **For Complex Plugins (THIS PLUGIN - RECOMMENDED):**
 1. Review migration blockers and plan workarounds
-2. Use `capacitor-plugin-dev` skill to assess complexity (Step 5)
-3. Follow **incremental platform migration approach**:
+2. Produce the structured YAML contract for `capacitor-plugin-generator`
+3. If the generated output quality drops, follow an **incremental platform approach**:
    - Phase 1: TypeScript API layer → User checkpoint
    - Phase 2: iOS implementation → User inspection and approval
    - Phase 3: Android implementation → User inspection and approval

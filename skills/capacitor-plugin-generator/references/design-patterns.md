@@ -1,0 +1,77 @@
+# Design Patterns
+
+Use Capacitor's Bridge pattern by default. Add a Facade or smaller services
+only when the plugin is complex enough to need multiple cooperating native
+components.
+
+## Bridge Pattern: Default
+
+The bridge pattern separates the Capacitor bridge from native business logic.
+Treat the plugin bridge class as a controller: it parses calls, gates
+permissions, delegates work, maps results, and emits events. It should not grow
+into the whole implementation.
+
+```
+JavaScript API
+  -> Capacitor plugin bridge class
+    -> Native implementation class
+      -> Platform APIs
+```
+
+Use this for simple and medium plugins:
+
+- Haptics-like APIs with small method surfaces.
+- Share-like APIs with platform-specific dispatch but limited state.
+- Plugins where the bridge class can translate calls and delegate work.
+
+Benefits:
+
+- Keeps `CAPPlugin` / `Plugin` classes thin.
+- Makes native logic easier to unit test.
+- Reduces mismatch between TypeScript, iOS, Android, and web implementations.
+
+## Code Organization
+
+Split implementation by responsibility rather than by convenience:
+
+- `<PluginName>Plugin`: Capacitor bridge/controller only.
+- `<PluginName>` or `<Feature>Manager`: platform API calls and native behavior.
+- `<PermissionManager>`: runtime permissions or special settings access.
+- `<Config>`: plugin configuration defaults and parsing.
+- `<Mapper>` or small helpers: platform enum/string/result conversion.
+
+Extract reusable parsing, validation, clamping, enum mapping, and result-building
+helpers. Do not leave permission handling, platform API calls, serialization,
+and sample-only logic in one large bridge method.
+
+## Facade Pattern: Complex
+
+Use a Facade when a plugin coordinates several native subsystems:
+
+- Push Notifications with token lifecycle, permissions, foreground/background
+  delivery, notification channels, and messaging SDK integration.
+- Plugins that need multiple managers, delegates, receivers, activities, or
+  lifecycle hooks.
+- Plugins where a single implementation class would become a large coordinator.
+
+The Capacitor plugin class should still stay thin. It should delegate to a
+facade such as `PushNotificationsFacade`, which coordinates smaller services
+such as permission, token, channel, and event managers.
+
+## Event Parity
+
+Every event name is a contract string. Keep the exact same value in:
+
+- `src/definitions.ts` listener overload.
+- `src/web.ts` `notifyListeners()`.
+- iOS `notifyListeners(_:data:)`.
+- Android `notifyListeners(name, data)`.
+- Sample app listener registration.
+
+Do not translate event names per platform.
+
+## Candidate Output Rule
+
+Generated output is a reviewable starting point, not production-ready code.
+Flag native areas that require credentials, entitlement setup, real-device
+testing, app store policy review, or manual SDK configuration.

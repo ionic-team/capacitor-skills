@@ -37,7 +37,7 @@ Analyzes Cordova plugins to understand their structure and plan their conversion
 
 This skill analyzes Cordova plugins to prepare them for migration to Capacitor. It identifies key patterns, assesses migration complexity, maps Cordova concepts to their Capacitor equivalents, and **flags Cordova-specific features that cannot be converted** or require significant workarounds.
 
-**Primary Workflow:** The analysis output is designed to feed directly into the `capacitor-plugin-dev` skill for building the Capacitor plugin. The analysis provides all necessary information for plugin development without requiring repeated inspection of the original Cordova code.
+**Primary Workflow:** The analysis output is designed to feed directly into the `capacitor-plugin-generator` skill for building the Capacitor plugin. When handing work to that skill, produce structured YAML that matches `skills/capacitor-plugin-generator/references/input-contract.md`, including the optional `migration:` block. The analysis provides all necessary information for plugin development without requiring repeated inspection of the original Cordova code.
 
 ---
 
@@ -60,13 +60,13 @@ Use this skill when you need to:
 
 This skill is focused on migration analysis, NOT:
 
-- ❌ Creating new Capacitor plugins from scratch (use capacitor-plugin-dev skill)
+- ❌ Creating new Capacitor plugins from scratch (use capacitor-plugin-generator skill)
 - ❌ General Cordova development without migration intent
 - ❌ Debugging runtime issues or crashes
 - ❌ Migrating entire Cordova apps (this is plugin-specific only)
 - ❌ Performing the actual code refactoring (analysis only)
 
-For creating new Capacitor plugins from scratch, use the capacitor-plugin-dev skill. For general development assistance, request it separately.
+For creating new Capacitor plugins from scratch, use the capacitor-plugin-generator skill. For general development assistance, request it separately.
 
 ---
 
@@ -114,11 +114,11 @@ See **[reference/migration-patterns.md](reference/migration-patterns.md)** for c
 6. Assess complexity → Flag blockers and assess feasibility
 7. Generate architecture mapping → Visualize Cordova → Capacitor transformation
 8. Provide migration roadmap → Prioritize conversion steps
-9. Output analysis → Ready for capacitor-plugin-dev skill consumption
+9. Output analysis → Ready for capacitor-plugin-generator skill consumption
 ```
 
 **Default Workflow:**
-Unless otherwise specified, the analysis is intended to feed into the `capacitor-plugin-dev` skill for implementation. The output provides all necessary architectural information, API mappings, and migration requirements without code snippets.
+Unless otherwise specified, the analysis is intended to feed into the `capacitor-plugin-generator` skill for implementation. The output provides all necessary architectural information, API mappings, and migration requirements without code snippets.
 
 ---
 
@@ -450,21 +450,21 @@ Provide an ASCII diagram showing the Cordova → Capacitor transformation. See *
 ```markdown
 ## Next Steps
 
-This analysis is ready to feed into the **capacitor-plugin-dev** skill for implementation.
+This analysis is ready to feed into the **capacitor-plugin-generator** skill for implementation.
 
 **Recommended Workflow:**
 
 **For Simple/Moderate Plugins:**
 1. Review migration blockers and plan workarounds
-2. Use `capacitor-plugin-dev` skill to scaffold the Capacitor plugin
+2. Use `capacitor-plugin-generator` skill to scaffold the Capacitor plugin
 3. Implement TypeScript API based on the mapping above
 4. Implement native iOS/Android code following the architecture transformation
 5. Document manual configuration steps for users
 
 **For Complex Plugins (RECOMMENDED):**
 1. Review migration blockers and plan workarounds
-2. Use `capacitor-plugin-dev` skill to assess complexity (Step 5)
-3. Follow **incremental platform migration approach**:
+2. Produce the structured YAML contract for `capacitor-plugin-generator`
+3. If the generated output quality drops, follow an **incremental platform approach**:
    - Phase 1: TypeScript API layer → User checkpoint
    - Phase 2: iOS implementation → User inspection and approval
    - Phase 3: Android implementation → User inspection and approval
@@ -629,12 +629,12 @@ When analyzing a plugin for migration, verify:
 
 This skill focuses on migration analysis and planning, NOT:
 - ❌ **Performing the actual code refactoring** - Use general development assistance for implementation
-- ❌ **Creating new Capacitor plugins from scratch** - Use the capacitor-plugin-dev skill instead
+- ❌ **Creating new Capacitor plugins from scratch** - Use the capacitor-plugin-generator skill instead
 - ❌ **Debugging runtime issues** - Provide error logs and request debugging help
 - ❌ **Migrating entire Cordova apps** - This skill is plugin-specific only
 
 **For Next Steps:**
-- After analysis, use capacitor-plugin-dev skill for implementation guidance
+- After analysis, use capacitor-plugin-generator skill for implementation guidance
 - Request code review assistance for converted code
 - Use general development tools for refactoring and testing
 
