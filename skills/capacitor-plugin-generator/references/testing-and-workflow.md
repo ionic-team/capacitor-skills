@@ -86,6 +86,5 @@ analysis to resolve them before generation.
 ## Manual Validation Notes
 
 Some plugin categories require real devices, credentials, or store-facing
-configuration. For example, Push Notifications requires APNS/FCM setup and
-device validation. Mark those as manual review items rather than claiming full
+configuration. Mark those as manual review items rather than claiming full
 runtime correctness.

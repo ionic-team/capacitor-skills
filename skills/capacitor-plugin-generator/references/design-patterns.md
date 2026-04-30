@@ -1,8 +1,8 @@
 # Design Patterns
 
-Use Capacitor's Bridge pattern by default. Add a Facade or smaller services
-only when the plugin is complex enough to need multiple cooperating native
-components.
+Use Capacitor's Bridge pattern by default. Add a Facade-style coordinator and
+smaller services only when the plugin is complex enough to need multiple
+cooperating native components.
 
 ## Bridge Pattern: Default
 
@@ -20,9 +20,10 @@ JavaScript API
 
 Use this for simple and medium plugins:
 
-- Haptics-like APIs with small method surfaces.
-- Share-like APIs with platform-specific dispatch but limited state.
-- Plugins where the bridge class can translate calls and delegate work.
+- Small or moderate public API surfaces.
+- Platform-specific work that fits behind clear method boundaries.
+- Plugins where the bridge class can translate calls, enforce permissions, and
+  delegate native work without coordinating many subsystems.
 
 Benefits:
 
@@ -44,19 +45,21 @@ Extract reusable parsing, validation, clamping, enum mapping, and result-buildin
 helpers. Do not leave permission handling, platform API calls, serialization,
 and sample-only logic in one large bridge method.
 
-## Facade Pattern: Complex
+## Facade Pattern: Complex Subsystems
 
-Use a Facade when a plugin coordinates several native subsystems:
+Use a Facade when a plugin coordinates several native subsystems. `Facade` is
+the design pattern name; generated class names may use `Facade`, `Coordinator`,
+or `Manager` when that better matches the platform or domain.
 
-- Push Notifications with token lifecycle, permissions, foreground/background
-  delivery, notification channels, and messaging SDK integration.
+- Complex lifecycle, permission, foreground/background, external SDK, or
+  long-lived event flows.
 - Plugins that need multiple managers, delegates, receivers, activities, or
   lifecycle hooks.
 - Plugins where a single implementation class would become a large coordinator.
 
 The Capacitor plugin class should still stay thin. It should delegate to a
-facade such as `PushNotificationsFacade`, which coordinates smaller services
-such as permission, token, channel, and event managers.
+coordinator that owns subsystem orchestration and delegates focused work to
+services such as permission, lifecycle, event, dependency, and data managers.
 
 ## Event Parity
 

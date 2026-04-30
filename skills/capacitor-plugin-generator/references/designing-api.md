@@ -20,10 +20,7 @@ The TypeScript contract drives every generated platform. Design
   native setup, add `checkPermissions()` and `requestPermissions()` to the API
   unless Capacitor provides a more specific established pattern.
 - If the same user-facing capability has both local and system-wide variants,
-  model them explicitly instead of hiding platform differences. For example,
-  `setBrightness()` can mean app/activity brightness, while
-  `setSystemBrightness()` can mean Android system settings brightness with
-  special permission handling.
+  model them explicitly instead of hiding platform differences.
 
 ## Example
 
@@ -126,7 +123,7 @@ export interface PermissionStatus {
   /**
    * @since 1.0.0
    */
-  brightness: PermissionState;
+  example: PermissionState;
 }
 ```
 

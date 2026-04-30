@@ -50,8 +50,8 @@ npx cap run ios
 npx cap run android
 ```
 
-## Push or Credentialed Plugins
+## Credentialed or Device-Only Plugins
 
-For plugins that need APNS, FCM, entitlements, provisioning profiles, or real
-devices, generate the sample app wiring but clearly mark credential/device
-validation as manual follow-up.
+For plugins that need external credentials, entitlements, provisioning profiles,
+third-party service setup, or real devices, generate the sample app wiring but
+clearly mark credential and device validation as manual follow-up.

@@ -96,27 +96,23 @@ public class ExamplePlugin extends Plugin {
 Some Android capabilities use special settings access rather than normal
 runtime permissions. Do not model these as ordinary `@Permission` prompts.
 
-For system-wide screen brightness:
+For these capabilities:
 
-- Declare `android.permission.WRITE_SETTINGS` in the generated Android manifest
-  or README setup instructions.
-- Check access with `Settings.System.canWrite(context)`.
-- Request access by opening `Settings.ACTION_MANAGE_WRITE_SETTINGS` with the
-  current package URI.
-- Return a `prompt` status after opening settings because the plugin cannot
-  synchronously wait for the user to grant access.
-- Before writing `Settings.System.SCREEN_BRIGHTNESS`, set
-  `Settings.System.SCREEN_BRIGHTNESS_MODE` to manual.
-- Convert between Android's `0..255` brightness setting and the TypeScript
-  contract's `0..1` value.
-
-For app/activity-only brightness:
-
-- Use `getActivity().getWindow().getAttributes().screenBrightness`.
-- Clamp values to `0.0f..1.0f`.
-- Restore system brightness by setting
-  `WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE`.
-- No `WRITE_SETTINGS` access is required for activity-only brightness.
+- Decide whether the requested behavior is app-local or system-wide.
+- Prefer app-local APIs when they satisfy the requested behavior and document
+  their scope.
+- For system-wide behavior, add explicit `checkPermissions()` and
+  `requestPermissions()` methods to the TypeScript API.
+- Declare required manifest permissions or setup steps in generated docs.
+- Check access with the capability-specific Android API before attempting the
+  protected operation.
+- Request access by opening the appropriate Android settings intent.
+- Return `prompt` after opening settings when Android cannot synchronously
+  report the user's decision.
+- Re-check access when the app resumes or before the protected operation.
+- Keep platform value conversions in a mapper/helper instead of inline bridge
+  code.
+- Reject protected operations with actionable messages when access is missing.
 
 ## Dependencies
 

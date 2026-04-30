@@ -78,19 +78,19 @@ If iOS does not require permission for a capability that Android does, still
 implement the permission API when the TypeScript contract includes it and return
 `granted` on iOS. This keeps the cross-platform API predictable.
 
-## Brightness Pattern
+## Platform-Specific API Notes
 
-For screen brightness generation:
+When iOS exposes a different scope or capability than Android, keep the
+TypeScript contract honest:
 
-- Use `UIScreen.main.brightness` on the main thread.
-- Clamp input values to `0.0...1.0`.
-- Store the original brightness before the first change when the API includes a
-  restore method.
-- iOS does not expose a separate programmatic brightness mode; return
-  `unknown` or reject unsupported mode setters when the API includes system mode
-  methods.
-- No iOS runtime permission is required for this API, but generated docs should
-  explain persistence/lifecycle behavior.
+- Document platform availability and behavioral differences in JSDoc and setup
+  notes.
+- Return `unimplemented()` or reject unsupported native operations with an
+  actionable message.
+- Put value clamping, enum mapping, and native result conversion in helpers.
+- Store and restore native state when a method temporarily changes app or
+  device behavior.
+- Run UI-affecting native APIs on the main thread.
 
 ## Dependencies
 
