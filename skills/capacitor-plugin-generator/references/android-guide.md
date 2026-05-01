@@ -80,6 +80,46 @@ This keeps the wire format consistent — typos cannot drift between methods —
 and the constants match the iOS `PluginError` enum so consumers see the same
 code regardless of platform.
 
+## SDK Adapter Pattern
+
+When the official plugin (or the generation contract) declares a native SDK
+dependency — for example `io.ionic.libs:ioncamera-android`,
+`com.stripe:stripe-android`, Firebase, ML Kit — the bridge class is a thin
+adapter, not an implementation:
+
+- Parse `PluginCall` options into the SDK's input types.
+- Call the SDK's async API (callbacks, listeners, suspend functions).
+- Map the SDK's result types back into `JSObject` for `call.resolve(...)`.
+- Forward SDK errors through the standard `PluginErrors` constants.
+
+```java
+import io.ionic.libs.ioncamera.IonCameraSdk;  // SDK the official wraps
+import com.getcapacitor.PluginCall;
+
+@CapacitorPlugin(name = "Example")
+public class ExamplePlugin extends Plugin {
+
+    @PluginMethod()
+    public void takePhoto(PluginCall call) {
+        TakePhotoOptions options = parseTakePhotoOptions(call);
+        IonCameraSdk.getInstance().takePhoto(options, new IonCameraCallback() {
+            @Override
+            public void onSuccess(Photo photo) {
+                call.resolve(encode(photo));
+            }
+            @Override
+            public void onError(IonCameraException e) {
+                call.reject(e.getMessage(), PluginErrors.OPERATION_FAILED, e);
+            }
+        });
+    }
+}
+```
+
+The implementation file collapses to option / result mappers; the SDK owns
+the platform logic. Declare the SDK as a Gradle `implementation '...'` line
+in `android/build.gradle` so consumers transitively install it.
+
 ## Permissions
 
 If Android runtime permissions are needed:

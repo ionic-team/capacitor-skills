@@ -155,6 +155,7 @@ without explicit human review outside this skill.
 | Web API absent in target browser | Use `unavailable()` when the API exists but is missing here; use `unimplemented()` when no web equivalent exists. |
 | Structured YAML is rejected | Validate against `references/input-contract.md`; ensure required base fields are present and blockers are empty. |
 | Generated output looks too broad | Split unrelated capabilities into separate plugins and regenerate with a smaller API surface. |
+| Generated native code reimplements logic the official plugin delegates to a native SDK | Inspect the official plugin's `.podspec` / `Package.swift` / `android/build.gradle` for native SDK dependencies. If present, declare the same SDK and write a thin adapter — see `references/designing-api.md` "Native Dependency Detection". |
 
 ## Related Skills
 

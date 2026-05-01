@@ -43,6 +43,25 @@ npx @capacitor/create-plugin@latest <plugin-directory> \
 | license | SPDX value, usually `MIT` unless the user provides another license. |
 | description | Short package description, not marketing copy. |
 
+## Native Dependency Detection (When Mirroring)
+
+When generating a plugin that mirrors an existing official or community
+plugin, inspect the official's dependency declarations *before* scaffolding
+so the generated `Package.swift` / `.podspec` / `build.gradle` includes the
+right native libraries from the start:
+
+- **iOS** — read the official `*.podspec` for `s.dependency '<Library>'`
+  and `Package.swift` for `dependencies: [.package(url: ...)]`.
+- **Android** — read `android/build.gradle` for
+  `implementation '<group>:<artifact>:...'` entries (excluding
+  `:capacitor-android` itself).
+
+Pass the detected dependencies into the generation flow alongside the API
+contract. If the official wraps a native SDK, the candidate's bridge
+becomes a thin adapter — see `references/ios-guide.md` "SDK Adapter
+Pattern" and `references/android-guide.md` "SDK Adapter Pattern". See
+`references/designing-api.md` "Native Dependency Detection" for the rule.
+
 ## `--class-name` Anti-Pattern
 
 The Capacitor scaffolder appends `Plugin` to the class name during file

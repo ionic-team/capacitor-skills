@@ -121,6 +121,45 @@ generator does not need to guess. Conversational mode must consult the source
 when a target API exists; otherwise, document the chosen wire format
 explicitly so reviewers can see what was decided.
 
+### Native Dependency Detection
+
+Mirroring an existing API means matching its architecture too. Before
+generating native code, inspect the official plugin's dependency
+declarations:
+
+- **iOS** — read the `.podspec` for `s.dependency '<Library>'` and
+  `Package.swift` for `dependencies: [.package(url: ...)]`.
+- **Android** — read `android/build.gradle` for
+  `implementation '<group>:<artifact>:...'` entries (excluding
+  `:capacitor-android` itself).
+
+If the official plugin depends on a native library that wraps the underlying
+platform API, the candidate plugin **must declare the same dependency and
+delegate to it** — do not reimplement from scratch. The skill's job is
+wire-compatibility *and* architectural compatibility; reimplementing under
+the same TypeScript surface produces a divergent fork that loses upstream
+bug fixes, behavior parity, and platform-quirk handling.
+
+When the SDK is wrapped, the bridge class becomes a thin adapter — see
+`references/ios-guide.md` and `references/android-guide.md` for the SDK
+adapter pattern.
+
+When the official plugin's bridge code is available locally, **read its
+actual SDK call sites and mirror them**. The official plugin is the
+canonical example of how to call this SDK from a Capacitor bridge; do not
+invent alternative API surfaces based on the SDK's name alone (e.g.,
+inferring class names like `XCameraLib.takePhoto(request:completion:)` from
+the package title). Match the official's import statements, type names,
+delegate conformances, and method signatures exactly.
+
+If the official source is not reachable and the SDK headers cannot be read,
+the candidate must still compile. Generate a local protocol/interface stub
+named `<SDKName>Bridge` with the operations the plugin needs, and inject a
+placeholder implementation that rejects with `unimplemented()`. Mark every
+call site with a `TODO(SDK): wire up <method> via <real SDK class>`
+comment so a human reviewer can complete the integration. Never import
+speculative type names that the agent has not verified exist.
+
 ## Versioning and Deprecation
 
 Annotate evolution explicitly. Every public symbol already needs `@since`;

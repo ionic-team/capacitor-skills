@@ -100,6 +100,49 @@ This keeps the wire format consistent — typos cannot drift between methods —
 and makes it obvious when a bridge method invents a new code that should be
 documented in the contract.
 
+## SDK Adapter Pattern
+
+When the official plugin (or the generation contract) declares a native SDK
+dependency — for example `IONCameraLib`, Stripe, Firebase, ML Kit, Auth0,
+RevenueCat — the bridge class is a thin adapter, not an implementation:
+
+- Parse `CAPPluginCall` options into the SDK's input types.
+- Call the SDK's async / completion API.
+- Map the SDK's result types back into JSON for `call.resolve(...)`.
+- Forward SDK errors through the standard `PluginError` enum.
+
+```swift
+import Capacitor
+import IONCameraLib   // or whichever SDK the official wraps
+
+@objc(ExamplePlugin)
+public class ExamplePlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "ExamplePlugin"
+    public let jsName = "Example"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "takePhoto", returnType: CAPPluginReturnPromise)
+    ]
+
+    @objc func takePhoto(_ call: CAPPluginCall) {
+        let options = parseTakePhotoOptions(call)
+        IONCameraLib.takePhoto(options) { [weak self] result in
+            switch result {
+            case .success(let photo):
+                call.resolve(self?.encode(photo) ?? [:])
+            case .failure(let error):
+                PluginError.operationFailed.reject(call, message: error.localizedDescription)
+            }
+        }
+    }
+}
+```
+
+The implementation file (`Example.swift` or similar) collapses to option /
+result mappers; the SDK owns the platform logic. Declare the SDK as a
+`Package.swift` dependency *and* a `.podspec` `s.dependency` line so
+consumers transitively install it through whichever distribution channel
+they use.
+
 ## Permissions
 
 If the plugin needs iOS permissions:
