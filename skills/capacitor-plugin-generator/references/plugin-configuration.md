@@ -26,6 +26,25 @@ declare module '@capacitor/cli' {
 }
 ```
 
+## Type Resolution
+
+Module augmentation only resolves at build time when the augmented module is
+actually installed. When the generated TypeScript declares
+`declare module '<name>'` or uses a `/// <reference types="<name>" />`
+triple-slash directive:
+
+- Add the augmented package to `devDependencies` in `package.json`. For
+  Capacitor plugin configuration types this is `@capacitor/cli`.
+- For triple-slash references, ensure the same package is reachable via
+  `tsconfig.json` `compilerOptions.types` or `typeRoots`. Most templates do
+  not need an explicit `types` array because TypeScript discovers
+  `node_modules/@types` automatically — the install is what matters.
+- TypeScript will fail with `Cannot find type definition file for '<name>'`
+  or `Invalid module name in augmentation, module '<name>' cannot be found`
+  when the augmented module is not installed at build time.
+
+This rule applies to any module augmentation, not just `@capacitor/cli`.
+
 ## Capacitor Config Example
 
 ```typescript

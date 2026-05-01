@@ -43,6 +43,16 @@ architecture, but it is a first pass that requires human review before release.
   scaffold to implement the requested API.
 - Keep generated code contract-first: TypeScript definitions drive web, iOS,
   Android, docs, and sample app behavior.
+- Use only Capacitor classes that exist in the installed `@capacitor/core`,
+  `@capacitor/android`, and `@capacitor/ios` packages. Do not invent helper
+  classes, utilities, or import paths. When uncertain whether an API exists,
+  read the package source rather than infer from its name.
+- When the generated TypeScript contract mirrors an existing public API
+  (Capacitor core/community, Capawesome, internal libraries, or a documented
+  JavaScript API the user is replacing), look up the actual string literal
+  values used on the wire. Do not derive them from human-friendly names.
+  Structured-mode YAML pins these values explicitly; conversational-mode
+  generation must consult the source.
 - Keep bridge files thin. Split native logic into implementation, manager,
   permission, config, and mapper helpers when a method would otherwise become
   a large mixed-responsibility block.
@@ -134,6 +144,12 @@ without explicit human review outside this skill.
 | Android method not callable from JS | Ensure the method is public and annotated with `@PluginMethod()`. |
 | `npm run verify:ios` fails | Run `pod install --repo-update`; then rerun the iOS verify command. |
 | `npm run verify:android` fails | Sync Gradle and check Android SDK, compile SDK, and dependency versions. |
+| Android compile error: `class X is public, should be declared in a file named X.java` | Java requires a public class to live in a file matching its name. When generating multiple Java classes per plugin, place each public class in its own file. Kotlin does not impose this rule. |
+| Android compile error: `notifyListeners(...) has protected access in Plugin` | `notifyListeners()` is `protected` on `Plugin`. Call it only from inside a class that extends `Plugin`. If another class needs to emit events, return the data to the plugin and dispatch there, or expose a public wrapper on the plugin that calls `notifyListeners()` internally. |
+| Android compile error: `cannot find symbol: class …` for a `com.getcapacitor.*` import | The import does not exist on the installed `@capacitor/android` surface. Verify imports against the package source before generating; do not infer Capacitor classes from their names. |
+| Android compile error: `<method> in <Subclass> cannot override <method> in Plugin: attempting to assign weaker access privileges; was public` | A helper on the plugin bridge collided with a `public` method already provided by `com.getcapacitor.Plugin` (e.g., `hasPermission`, `getPermissionState`). Use the inherited method directly, override with matching `public` visibility, or pick a non-colliding name for the helper. |
+| TypeScript build error: `Cannot find type definition file for '<name>'` or `Invalid module name in augmentation, module '<name>' cannot be found` | The augmented module is not installed. Add it to `devDependencies` (and to `tsconfig.json` `compilerOptions.types` if a triple-slash reference is used). Applies to any module augmentation, not just `@capacitor/cli`. |
+| TypeScript build error: `Interface 'X' incorrectly extends interface 'Y'. Property 'Z' is optional in type 'X' but required in type 'Y'` (or the symmetric error) | Do not redeclare members the built-in lib type already provides. Use the lib type directly, or augment via `declare global { interface Y { newMember?: ... } }` for genuinely new members only. Use `'name' in target` runtime guards for capability checks. |
 | `npm run docgen` produces empty output | Add JSDoc to `src/definitions.ts`; docgen reads the TypeScript contract. |
 | Web API absent in target browser | Use `unavailable()` when the API exists but is missing here; use `unimplemented()` when no web equivalent exists. |
 | Structured YAML is rejected | Validate against `references/input-contract.md`; ensure required base fields are present and blockers are empty. |

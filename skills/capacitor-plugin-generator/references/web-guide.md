@@ -46,6 +46,34 @@ If `src/definitions.ts` includes `checkPermissions()` or
 API only after feature detection; throw `unavailable()` when the browser lacks
 the needed API and `unimplemented()` when web cannot request that permission.
 
+## Extending Built-in Lib Types
+
+Modern TypeScript lib types include most stable Web APIs (`Navigator`,
+`Document`, `Window`, `Permissions`, `Screen`, `Storage`, etc.). When the web
+layer needs to feature-detect or use one of these APIs, prefer the lib type
+directly rather than redeclaring its members.
+
+- **Do not** declare an extending interface that redeclares a lib member with
+  a different optionality or signature. TypeScript will reject it with
+  `Interface 'X' incorrectly extends interface 'Y'. Property 'Z' is optional
+  in type 'X' but required in type 'Y'` (or the symmetric error). Lib types
+  encode optionality from the spec; do not override it.
+- **For genuinely new members** (a non-standard or experimental API not yet
+  in the lib), use module-merging declaration so the lib member set is
+  augmented rather than replaced:
+  ```typescript
+  declare global {
+    interface Navigator {
+      // only declare members the lib does not already provide
+      experimentalFooApi?: () => Promise<void>;
+    }
+  }
+  ```
+- **For optional capability checks**, use `'memberName' in target` runtime
+  guards. Do not redeclare the lib type just to make a member appear optional
+  at compile time — the lib already encodes optionality where the spec marks
+  it.
+
 ## Events
 
 If the plugin emits events:

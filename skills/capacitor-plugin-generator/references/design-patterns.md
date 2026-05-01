@@ -73,6 +73,27 @@ Every event name is a contract string. Keep the exact same value in:
 
 Do not translate event names per platform.
 
+## Event Dispatch Locality
+
+Capacitor's `notifyListeners(...)` is intentionally scoped to the plugin class
+on both platforms — `protected` on Android and reached through `self` on iOS.
+Generated code must respect this:
+
+- Implementation classes, managers, services, broadcast receivers, and
+  observers must not call `plugin.notifyListeners(...)` through a captured
+  plugin reference. The Android compiler rejects it; iOS allows it but it is
+  fragile and breaks when the plugin is not yet loaded.
+- Either return event data to the plugin class and dispatch there, or expose a
+  `public` wrapper method on the plugin class that calls `notifyListeners(...)`
+  internally.
+- Background contexts that may run before the plugin is loaded (FCM service,
+  APNs receipt, deep-link intent, broadcast receiver) must dispatch through a
+  static accessor on the plugin class, not through a captured plugin instance,
+  because the plugin may not exist yet.
+
+Treat this as a non-negotiable rule. Violations surface as access-modifier
+compile errors on Android and silent no-ops or crashes on iOS.
+
 ## Candidate Output Rule
 
 Generated output is a reviewable starting point, not production-ready code.

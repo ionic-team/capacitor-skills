@@ -22,6 +22,27 @@ The TypeScript contract drives every generated platform. Design
 - If the same user-facing capability has both local and system-wide variants,
   model them explicitly instead of hiding platform differences.
 
+## When Mirroring an Existing API
+
+If the requested plugin mirrors an existing public API — a Capacitor
+core/community plugin, a Capawesome plugin, an internal library, or a
+documented JavaScript API the user is replacing — look up the actual source
+`definitions.ts` (or equivalent) before generating. Match the wire-format
+string literal values exactly. Do not derive them from human-friendly names or
+TypeScript enum key names.
+
+A common failure mode: a known API exposes a TypeScript enum like
+`enum Style { Heavy = 'HEAVY', Medium = 'MEDIUM', Light = 'LIGHT' }`. If the
+contract is generated from the human description ("style options Heavy,
+Medium, Light") instead of the source, the generator may produce
+`'Heavy' | 'Medium' | 'Light'` as the union — which is not the wire format and
+will not interoperate with apps already using the official plugin.
+
+The structured YAML mode pins these values in `api.types[].values` so the
+generator does not need to guess. Conversational mode must consult the source
+when a target API exists; otherwise, document the chosen wire format
+explicitly so reviewers can see what was decided.
+
 ## Example
 
 ```typescript

@@ -122,6 +122,135 @@ For these capabilities:
 - Document any required app-level Gradle, manifest, service, receiver, or
   Firebase configuration that cannot be safely generated in the plugin package.
 
+## Java File and Class Names
+
+Every Java source file may contain at most one `public` class, and the file
+name must match that public class name. When the plugin uses a separate
+implementation class, place each public class in its own file: bridge in
+`<ClassName>Plugin.java`, implementation in its own descriptive file (often
+`<ClassName>Impl.java` or `<ClassName>.java`).
+
+Kotlin does not enforce this rule, so when generating Kotlin do not blindly
+mirror Java's file layout — a single `.kt` file may contain multiple top-level
+classes. When generating Java, always pair file names with public class names.
+
+## Where `notifyListeners()` Is Callable
+
+`Plugin.notifyListeners(String name, JSObject data)` is `protected`. It can only
+be called from within a class that extends `Plugin`. If a separate
+implementation class, manager, service, broadcast receiver, or callback needs
+to emit an event, dispatch through the plugin class rather than holding a
+`Plugin` reference and calling `plugin.notifyListeners(...)`.
+
+Two acceptable shapes:
+
+1. **Return event data to the plugin and dispatch there** (preferred for
+   synchronous flows):
+
+   ```java
+   // inside the Plugin subclass
+   JSObject payload = implementation.compute();
+   notifyListeners("changed", payload);
+   ```
+
+2. **Expose a public wrapper on the plugin class** (for background contexts
+   that legitimately need to emit events while the plugin is loaded):
+
+   ```java
+   @CapacitorPlugin(name = "Example")
+   public class ExamplePlugin extends Plugin {
+       public void emit(String eventName, JSObject data) {
+           notifyListeners(eventName, data);
+       }
+   }
+   ```
+
+Do not pass `Plugin` as a constructor parameter to an implementation class
+purely so the implementation can call `plugin.notifyListeners(...)`. The
+access modifier will reject it at compile time.
+
+## Do Not Shadow `Plugin` API Methods
+
+`com.getcapacitor.Plugin` already exposes a number of `public` methods that
+plugin subclasses commonly want to use or "wrap" with helpers. Java rejects
+overrides that narrow visibility, so a `private` helper with the same name and
+signature as a `public` `Plugin` method fails to compile with
+`<method> in <Subclass> cannot override <method> in Plugin: attempting to
+assign weaker access privileges; was public`.
+
+Common `Plugin` methods to be aware of when generating helpers on the bridge
+class:
+
+- `hasPermission(String alias)`
+- `getPermissionState(String alias)`
+- `requestPermissionForAlias(...)`, `requestPermissionForAliases(...)`,
+  `requestAllPermissions(...)`
+- `getContext()`, `getActivity()`, `getBridge()`, `getConfig()`
+- `load()`, `handleOnConfigurationChanged(...)`
+
+Three acceptable shapes:
+
+1. **Use the inherited method directly.** If `Plugin.hasPermission(alias)`
+   already returns the desired boolean, do not declare a helper — call the
+   inherited method.
+2. **Override with matching `public` visibility.** If the override needs new
+   behavior, declare it `public`, not `private` or default-package, and call
+   `super.<method>(...)` when delegation is required.
+3. **Pick a different name.** For genuinely new helpers, name them so they do
+   not collide with `Plugin`'s API surface (e.g., `isPermissionGranted(...)`
+   rather than `hasPermission(...)`).
+
+This rule applies symmetrically on iOS for `CAPPlugin` overrides — Swift
+allows narrowing `public` to `private` on a non-override declaration, but if
+an `@objc override` shadows a parent method, the override must keep the
+parent's access level.
+
+## Async Activity Results
+
+When the plugin starts a system UI flow that returns a result (chooser, photo
+picker, document picker, OAuth, settings, share-with-result), use Capacitor's
+activity-result plumbing. Do not call `activity.startActivity(...)` followed by
+`call.resolve()` synchronously — the resolve fires before the user picks
+anything.
+
+```java
+startActivityForResult(call, intent, "onResult");
+
+@ActivityCallback
+private void onResult(PluginCall call, ActivityResult result) {
+    JSObject ret = new JSObject();
+    // map result.getData() into ret as needed
+    call.resolve(ret);
+}
+```
+
+## Background and Lifecycle Event Dispatch
+
+Some plugins receive events from contexts that run outside the plugin's
+lifecycle: `FirebaseMessagingService`, broadcast receivers, intent filters,
+deep-link handlers, `Application.ActivityLifecycleCallbacks`, app shortcut
+targets. The plugin instance may not be loaded when these events arrive.
+
+Required pattern:
+
+1. Implement the platform-specific class as a real subclass of the platform
+   type (for example, extend `FirebaseMessagingService`). Do not generate a
+   stand-alone class with a service-like name and unused imports — the runtime
+   will not invoke it.
+2. From the background class, write the payload to a queue or shared store
+   keyed by event name.
+3. In the plugin's `load()`, drain the queue and dispatch through
+   `notifyListeners(...)` (which is in scope inside `load()`).
+4. While the plugin is loaded, the background class may call a static accessor
+   on the plugin's class object to deliver events directly. Never hold a
+   `Plugin` reference across process boundaries.
+
+Generated output for plugins of this shape must include the appropriate
+manifest `<service>`, `<receiver>`, or `<intent-filter>` registrations and
+README setup notes for any third-party SDK the app developer must install
+(FCM, APNs, OAuth providers, etc.). Mark these as required app-side setup,
+not plugin-internal.
+
 ## Verification
 
 Run:

@@ -60,6 +60,21 @@ import Foundation
 - Add `override public func load()` only for plugin startup wiring such as
   native observers or managers; keep business logic out of `load()`.
 
+## Where `notifyListeners()` Is Callable
+
+`notifyListeners(_:data:)` is an instance method on `CAPPlugin`. It is callable
+from within the plugin class itself or any context where `self: CAPPlugin` is in
+scope. If a separate Swift implementation class, delegate, or notification
+observer needs to emit an event, dispatch through the plugin via a closure or a
+`weak` reference rather than passing the plugin object around.
+
+Background and lifecycle contexts (APNs forwarding from `AppDelegate`, push
+receipt handlers, observer methods on system frameworks, deep-link handlers)
+should reach the plugin through a static accessor on the plugin class. The
+plugin may not be loaded when the event arrives; the background class must not
+assume a live plugin reference. This mirrors the Android pattern in
+`android-guide.md`.
+
 ## Permissions
 
 If the plugin needs iOS permissions:
