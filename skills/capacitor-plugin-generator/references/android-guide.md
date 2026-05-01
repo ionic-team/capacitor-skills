@@ -57,6 +57,29 @@ public class Example {
 - Add `@Override public void load()` only for plugin startup wiring such as
   native observers, managers, or receivers.
 
+## Plugin Errors as Constants
+
+Centralize the standard error codes from `references/designing-api.md` so
+the bridge does not pass raw strings around:
+
+```java
+public final class PluginErrors {
+    public static final String UNAVAILABLE = "UNAVAILABLE";
+    public static final String PERMISSION_DENIED = "PERMISSION_DENIED";
+    public static final String INVALID_PARAMETER = "INVALID_PARAMETER";
+    public static final String OPERATION_FAILED = "OPERATION_FAILED";
+
+    private PluginErrors() {}
+}
+
+// Usage — message first, code second
+call.reject("Camera permission not granted", PluginErrors.PERMISSION_DENIED);
+```
+
+This keeps the wire format consistent — typos cannot drift between methods —
+and the constants match the iOS `PluginError` enum so consumers see the same
+code regardless of platform.
+
 ## Permissions
 
 If Android runtime permissions are needed:
@@ -121,6 +144,76 @@ For these capabilities:
   existing repository set.
 - Document any required app-level Gradle, manifest, service, receiver, or
   Firebase configuration that cannot be safely generated in the plugin package.
+
+## Opening App Settings After Permanent Denial
+
+Once a user has denied a runtime permission and selected "Don't ask again",
+Android will not re-prompt. The plugin can only deep-link to the system app
+settings so the user can change the choice manually.
+
+```java
+@PluginMethod()
+public void openSettings(PluginCall call) {
+    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+    intent.setData(Uri.fromParts("package", getContext().getPackageName(), null));
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    try {
+        getContext().startActivity(intent);
+        JSObject ret = new JSObject();
+        ret.put("opened", true);
+        call.resolve(ret);
+    } catch (Exception e) {
+        call.reject("Cannot open settings", e);
+    }
+}
+```
+
+Expose this as `openSettings()` on the plugin contract whenever the API has a
+permission flow. The user-facing prompt for "permission denied" should offer
+this as a recovery path.
+
+## Do Not Shadow `Plugin` API Methods With Weaker Visibility
+
+`com.getcapacitor.Plugin` defines a number of `public` instance methods that
+plugins are expected to use or override: `hasPermission(String alias)`,
+`getPermissionState(String alias)`, `requestPermissionForAlias(...)`,
+`saveCall(PluginCall)`, `freeSavedCall()`, `notifyListeners(...)`, and others.
+
+When generating helpers on a `Plugin` subclass, do not declare a method with
+the same name and signature as one of these — the JVM treats it as an
+override, and Java rejects narrowing visibility:
+
+```java
+// REJECTED at compile time: hasPermission is public on Plugin.
+private boolean hasPermission(String alias) {  // ❌
+    return getPermissionState(alias) == PermissionState.GRANTED;
+}
+```
+
+Two acceptable shapes:
+
+1. **Rename the helper** so it does not collide:
+
+   ```java
+   private boolean isPermissionGranted(String alias) {  // ✅
+       return getPermissionState(alias) == PermissionState.GRANTED;
+   }
+   ```
+
+2. **Match the parent's visibility** if you genuinely intend to override:
+
+   ```java
+   @Override
+   public boolean hasPermission(String alias) {  // ✅
+       // custom logic
+       return super.hasPermission(alias);
+   }
+   ```
+
+The compiler error reads `<method> in <Subclass> cannot override <method> in
+Plugin; attempting to assign weaker access privileges; was public`. When that
+appears, check whether the helper name overlaps with a public method on
+`Plugin` and rename or widen visibility.
 
 ## Java File and Class Names
 

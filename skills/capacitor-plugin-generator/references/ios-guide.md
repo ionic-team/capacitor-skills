@@ -75,6 +75,31 @@ plugin may not be loaded when the event arrives; the background class must not
 assume a live plugin reference. This mirrors the Android pattern in
 `android-guide.md`.
 
+## Plugin Errors as a Swift Enum
+
+Centralize the standard error codes from `references/designing-api.md` so
+the bridge does not pass raw strings around:
+
+```swift
+enum PluginError: String, Error {
+    case unavailable = "UNAVAILABLE"
+    case permissionDenied = "PERMISSION_DENIED"
+    case invalidParameter = "INVALID_PARAMETER"
+    case operationFailed = "OPERATION_FAILED"
+
+    func reject(_ call: CAPPluginCall, message: String) {
+        call.reject(message, rawValue)
+    }
+}
+
+// Usage
+PluginError.permissionDenied.reject(call, message: "Camera permission not granted")
+```
+
+This keeps the wire format consistent — typos cannot drift between methods —
+and makes it obvious when a bridge method invents a new code that should be
+documented in the contract.
+
 ## Permissions
 
 If the plugin needs iOS permissions:
@@ -92,6 +117,30 @@ If the plugin needs iOS permissions:
 If iOS does not require permission for a capability that Android does, still
 implement the permission API when the TypeScript contract includes it and return
 `granted` on iOS. This keeps the cross-platform API predictable.
+
+## Opening App Settings After Permanent Denial
+
+Once a user has denied a permission and chosen "Don't Ask Again", iOS will
+never re-prompt. The plugin can only deep-link to the system settings page so
+the user can change the choice manually.
+
+```swift
+@objc func openSettings(_ call: CAPPluginCall) {
+    guard let url = URL(string: UIApplication.openSettingsURLString) else {
+        call.reject("Cannot construct settings URL")
+        return
+    }
+    DispatchQueue.main.async {
+        UIApplication.shared.open(url) { success in
+            call.resolve(["opened": success])
+        }
+    }
+}
+```
+
+Expose this as `openSettings()` on the plugin contract whenever the API has a
+permission flow. The user-facing prompt for "permission denied" should offer
+this as a recovery path.
 
 ## Platform-Specific API Notes
 

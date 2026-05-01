@@ -22,6 +22,84 @@ The TypeScript contract drives every generated platform. Design
 - If the same user-facing capability has both local and system-wide variants,
   model them explicitly instead of hiding platform differences.
 
+## Method Naming
+
+Use action verbs that disambiguate intent. The verb dictates the method's
+contract — readers should be able to predict the return shape from the name
+alone.
+
+| Verb        | Use for                                  | Example                                           |
+| ---         | ---                                      | ---                                               |
+| `get`       | Retrieve current state, no side effects  | `getStatus()`, `getCurrentPosition()`             |
+| `check`     | Test a condition, no prompt              | `checkPermissions()`, `isAvailable()`             |
+| `request`   | Ask the user or system for something     | `requestPermissions()`                            |
+| `start`/`stop` | Begin or end a continuous operation   | `startMonitoring()`, `stopMonitoring()`           |
+| `create`/`delete` | Manage a resource lifecycle         | `createChannel()`, `deleteFile()`                 |
+| `update`    | Mutate existing state                    | `updateSettings()`                                |
+| `open`/`close` | Show or dismiss platform UI           | `openSettings()`, `closeDialog()`                 |
+| `add`/`remove` | Manage a collection                   | `addListener()`, `removeAllListeners()`           |
+
+Avoid bare nouns (`status()`, `permissions()`) — readers cannot tell whether
+they read or write.
+
+## Return-Shape Extensibility
+
+Wrap primitive returns in an object so the API can grow without breaking
+consumers. Adding a field to an object is non-breaking; changing a primitive
+return type is breaking.
+
+```typescript
+// Brittle — cannot add fields later without breaking callers.
+async isAvailable(): Promise<boolean>;
+async listFiles(): Promise<FileInfo[]>;
+
+// Extensible — new fields can be added in a minor version.
+async isAvailable(): Promise<{ available: boolean; reason?: string }>;
+async listFiles(): Promise<{ files: FileInfo[]; truncated?: boolean }>;
+```
+
+Apply the same shape rule to error/availability surfaces:
+
+```typescript
+export interface FeatureAvailability {
+  available: boolean;
+  /** Why the feature is unavailable on this device/session. */
+  reason?: string;
+}
+```
+
+## Platform-Specific Options
+
+When iOS and Android need substantively different inputs for the same logical
+operation, surface the divergence with namespaced sub-objects rather than
+flattening platform-specific keys into the top level:
+
+```typescript
+export interface NotificationOptions {
+  /** Common across platforms. */
+  title: string;
+  body: string;
+
+  /** iOS-only fields. */
+  ios?: {
+    sound?: string;
+    badge?: number;
+    threadId?: string;
+  };
+
+  /** Android-only fields. */
+  android?: {
+    channelId: string;
+    smallIcon?: string;
+    priority?: 'high' | 'low';
+  };
+}
+```
+
+Document which keys are platform-specific in JSDoc. Platform-specific options
+should be optional from the contract's perspective; the native side falls back
+to sensible defaults if the consumer omits them.
+
 ## When Mirroring an Existing API
 
 If the requested plugin mirrors an existing public API — a Capacitor
@@ -42,6 +120,49 @@ The structured YAML mode pins these values in `api.types[].values` so the
 generator does not need to guess. Conversational mode must consult the source
 when a target API exists; otherwise, document the chosen wire format
 explicitly so reviewers can see what was decided.
+
+## Versioning and Deprecation
+
+Annotate evolution explicitly. Every public symbol already needs `@since`;
+methods, types, or properties scheduled for removal also need `@deprecated`.
+
+```typescript
+interface ExamplePlugin {
+  /**
+   * @deprecated Use `getDataV2()` instead. Removed in v3.0.0.
+   * @see getDataV2
+   * @since 1.0.0
+   */
+  getData(): Promise<OldData>;
+
+  /**
+   * Improved data fetching with additional fields.
+   *
+   * @since 2.1.0
+   * @requires iOS 14+, Android 11+
+   */
+  getDataV2(): Promise<NewData>;
+}
+```
+
+Implementation rules:
+
+- A deprecated method must still work — keep it forwarding to its
+  replacement and log once at runtime so consumers see the migration
+  notice in development:
+
+  ```typescript
+  async getData(): Promise<OldData> {
+    console.warn('[ExamplePlugin] getData is deprecated; use getDataV2');
+    return this.getDataV2() as unknown as OldData;
+  }
+  ```
+
+- `@requires` documents minimum platform/OS versions. Pair with a runtime
+  guard (`unavailable()` on the native side) so calls on older OS versions
+  reject cleanly rather than crash at the API boundary.
+- Bump the npm `version` field per semver: MAJOR removes deprecated APIs,
+  MINOR adds new ones, PATCH fixes bugs without contract changes.
 
 ## Example
 
@@ -152,6 +273,59 @@ Import `PermissionState` from `@capacitor/core` unless the plugin needs custom
 states. Use string unions for plugin-specific modes, even when a reference
 plugin or native SDK uses numeric constants or TypeScript enums.
 
+## Error Codes
+
+Reject with a small, consistent vocabulary of code strings across web, iOS,
+and Android so consumers can write unified error handling. Add new codes
+only when callers genuinely need to branch on the cause; do not invent a
+one-off code per call site.
+
+| Code                  | When to use                                                                  |
+| ---                   | ---                                                                          |
+| `UNAVAILABLE`         | The feature is not supported on this platform/device/session.                |
+| `PERMISSION_DENIED`   | The user denied a runtime permission (or it was permanently denied).         |
+| `INVALID_PARAMETER`   | Arguments fail validation: missing, wrong type, or out of range.             |
+| `OPERATION_FAILED`    | The native operation failed for a reason not covered above.                  |
+
+Subtype `OPERATION_FAILED` only when callers need to branch on cause:
+`NETWORK_ERROR`, `HARDWARE_ERROR`, `TIMEOUT`, `CANCELLED`. Keep the surface
+small.
+
+Native reject signatures take the message first and the code second:
+
+```swift
+// iOS
+call.reject("Camera permission not granted", "PERMISSION_DENIED")
+```
+
+```java
+// Android
+call.reject("Camera permission not granted", "PERMISSION_DENIED");
+```
+
+```typescript
+// Web — attach a `code` property so consumers see the same wire shape.
+const error = new Error('Camera permission not granted');
+(error as Error & { code: string }).code = 'PERMISSION_DENIED';
+throw error;
+```
+
+Consumers then write the same handler regardless of platform:
+
+```typescript
+try {
+  await MyPlugin.method();
+} catch (e) {
+  if ((e as { code?: string }).code === 'PERMISSION_DENIED') {
+    // show rationale, offer settings link
+  }
+}
+```
+
+See `references/ios-guide.md` and `references/android-guide.md` for how to
+centralize these as a Swift enum and a Java constants class so the codes do
+not drift across methods.
+
 ## Registration
 
 `src/index.ts` should register the plugin and lazily load the web implementation:
@@ -168,3 +342,39 @@ const Example = registerPlugin<ExamplePlugin>('Example', {
 export * from './definitions';
 export { Example };
 ```
+
+## Common Anti-Patterns
+
+Three contract shapes that look reasonable but consistently cause friction:
+
+- **Stringly-typed dispatch**:
+
+  ```typescript
+  // Avoid: collapses every operation into one method, defeats type checking.
+  doAction(action: string, data: unknown): Promise<unknown>;
+
+  // Prefer specific methods with typed options/results.
+  capturePhoto(options: CapturePhotoOptions): Promise<CapturePhotoResult>;
+  recordVideo(options: RecordVideoOptions): Promise<RecordVideoResult>;
+  ```
+
+- **Mutating the caller's options object** in the implementation. The
+  options object passed across the bridge belongs to the caller. Native
+  code receives a JSON copy anyway, so any "mutation" only affects a local
+  clone — surface that clearly by treating options as read-only inputs and
+  returning new result objects.
+
+- **Boolean parameters that change behavior**:
+
+  ```typescript
+  // Avoid: caller has to remember what `true` means at every call site.
+  loadFile(path: string, sync: boolean): Promise<string>;
+
+  // Prefer named modes or distinct methods.
+  loadFile(options: { path: string; mode: 'sync' | 'async' }): Promise<string>;
+  ```
+
+These shapes show up most often when a contract is generated from a verbal
+description that did not break operations into typed shapes. When in doubt,
+err toward more specific methods with `<MethodName>Options` /
+`<MethodName>Result` interfaces.

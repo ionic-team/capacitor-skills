@@ -43,6 +43,21 @@ npx @capacitor/create-plugin@latest <plugin-directory> \
 | license | SPDX value, usually `MIT` unless the user provides another license. |
 | description | Short package description, not marketing copy. |
 
+## `--class-name` Anti-Pattern
+
+The Capacitor scaffolder appends `Plugin` to the class name during file
+generation. Pass the bare PascalCase name without that suffix or you will
+get duplicated `*PluginPlugin` filenames.
+
+| Flag value                       | Generated files                                  | Result        |
+| ---                              | ---                                              | ---           |
+| `--class-name "Example"`         | `ExamplePlugin.swift`, `ExamplePlugin.java`      | ✅ correct    |
+| `--class-name "ExamplePlugin"`   | `ExamplePluginPlugin.swift`, `ExamplePluginPlugin.java` | ❌ stuttering |
+
+The same rule applies to the structured YAML `plugin.class_name` field —
+strip a trailing `Plugin` from any value the user provides before invoking
+the scaffolder.
+
 ## Name Parity
 
 The JavaScript plugin name is the class name without a generated suffix. Keep it

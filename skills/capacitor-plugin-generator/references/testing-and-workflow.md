@@ -76,6 +76,117 @@ npx cap run android
 - Sample app exercises every method and listener.
 - README API docs come from `npm run docgen`.
 
+## Unit Test Patterns
+
+Native and web layers can be unit-tested without launching a full Capacitor
+app. The patterns below are toolchain-agnostic recipes — drop in whichever
+framework the scaffold provides (XCTest, JUnit, Jest).
+
+### iOS — Mock `CAPPluginCall`
+
+For unit tests of the bridge class, subclass `CAPPluginCall` and capture the
+`resolve` / `reject` calls instead of invoking real Capacitor plumbing:
+
+```swift
+import XCTest
+import Capacitor
+@testable import ExamplePlugin
+
+final class MockPluginCall: CAPPluginCall {
+    var resolvedData: [String: Any]?
+    var rejectedMessage: String?
+
+    override func resolve(_ data: [String: Any]) { resolvedData = data }
+    override func reject(_ message: String) { rejectedMessage = message }
+}
+
+final class ExamplePluginTests: XCTestCase {
+    func testEcho() {
+        let plugin = ExamplePlugin()
+        let call = MockPluginCall(callbackId: "t",
+                                  options: ["value": "hi"],
+                                  success: { _, _ in },
+                                  error: { _ in })
+        plugin.echo(call)
+        XCTAssertEqual(call.resolvedData?["value"] as? String, "hi")
+    }
+}
+```
+
+For async work, use `XCTestExpectation` and `waitForExpectations(timeout:)`.
+
+### Android — Mock `PluginCall` with Mockito
+
+Mock `PluginCall` directly; verify with `argThat`:
+
+```java
+import com.getcapacitor.JSObject;
+import com.getcapacitor.PluginCall;
+import org.junit.Test;
+import static org.mockito.Mockito.*;
+
+public class ExamplePluginTest {
+    @Test
+    public void echoResolvesValue() {
+        PluginCall call = mock(PluginCall.class);
+        when(call.getString("value")).thenReturn("hi");
+
+        ExamplePlugin plugin = new ExamplePlugin();
+        plugin.echo(call);
+
+        verify(call).resolve(argThat(result ->
+            "hi".equals(result.getString("value"))));
+    }
+}
+```
+
+For methods that need an Android `Context`, run with Robolectric:
+
+```java
+@RunWith(RobolectricTestRunner.class)
+public class ContextDependentTest {
+    @Test
+    public void writesFile() {
+        Context context = ApplicationProvider.getApplicationContext();
+        // exercise plugin logic that needs a real Context
+    }
+}
+```
+
+### Web — Mock browser APIs on `globalThis.navigator`
+
+Use `Object.defineProperty` to inject a fake API, then assert on the mock:
+
+```typescript
+import { ExampleWeb } from '../web';
+
+describe('ExampleWeb', () => {
+  let plugin: ExampleWeb;
+
+  beforeEach(() => {
+    plugin = new ExampleWeb();
+    Object.defineProperty(globalThis.navigator, 'geolocation', {
+      value: {
+        getCurrentPosition: jest.fn((onSuccess) =>
+          onSuccess({
+            coords: { latitude: 1, longitude: 2, accuracy: 5 },
+            timestamp: 0,
+          })),
+      },
+      configurable: true,
+    });
+  });
+
+  test('returns coords', async () => {
+    const result = await plugin.getCurrentPosition();
+    expect(result.latitude).toBe(1);
+  });
+});
+```
+
+The `configurable: true` flag is what lets a later test redefine the property
+to simulate the API being unavailable.
+
 ## Hooks
 
 If generated output needs package lifecycle hooks, prefer npm scripts and keep

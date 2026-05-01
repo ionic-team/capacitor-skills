@@ -94,6 +94,83 @@ Generated code must respect this:
 Treat this as a non-negotiable rule. Violations surface as access-modifier
 compile errors on Android and silent no-ops or crashes on iOS.
 
+## Bridge Performance
+
+Each call across the JavaScript ↔ native bridge has serialization and
+context-switch overhead. Generated APIs should default to shapes that
+minimize bridge traffic:
+
+- **Prefer batch operations over loops.** Expose a batch method when the
+  caller is likely to invoke the same operation many times in succession.
+
+  ```typescript
+  // 100 bridge crossings.
+  for (const id of ids) await Plugin.processItem({ id });
+
+  // 1 bridge crossing.
+  await Plugin.processBatch({ ids });
+  ```
+
+- **Pass file URIs/paths instead of base64 for large binary payloads.**
+  Photos, audio recordings, and downloaded files should round-trip as
+  filesystem paths or `content://` URIs. Base64 inflates payload size by
+  ~33% and forces a full UTF-16 traversal in V8/JSC.
+
+  ```typescript
+  // Avoid for non-trivial sizes.
+  await Plugin.processImage({ data: base64EncodedMegabytes });
+
+  // Preferred.
+  await Plugin.processImage({ uri: 'file:///path/to/image.jpg' });
+  ```
+
+- **Use events for streams, not polling.** When the native side produces
+  data continuously (sensors, location, download progress), expose
+  `addListener(...)` and `notifyListeners(...)`; do not require the caller
+  to poll a `getCurrent()` method on a timer.
+
+These are defaults, not hard rules. Small payloads, one-shot calls, and
+debug-only methods can ignore them.
+
+## Security
+
+Two cross-platform rules that are easy to miss in generated code:
+
+- **Validate at the boundary.** The bridge is a trust boundary between app
+  code and the native runtime. Before passing user-supplied strings to
+  privileged APIs (file paths, URLs, intent extras, shell-like inputs),
+  validate the shape on the side that constructs the call:
+
+  ```typescript
+  async openLink(options: { url: string }): Promise<void> {
+    if (!/^https?:\/\//.test(options.url)) {
+      const err = new Error('http(s) URL required');
+      (err as Error & { code: string }).code = 'INVALID_PARAMETER';
+      throw err;
+    }
+    // pass to native
+  }
+  ```
+
+  Apply the same rule to file paths (reject absolute paths or `..` traversal
+  unless intentional) and to any input that becomes a system intent extra.
+
+- **Do not log secrets.** Tokens, passwords, biometric outputs, API keys,
+  and credentials must not appear in `print()` / `Log.d()` / `console.log()`
+  even at debug level. Generated code should log the *attempt*, not the
+  payload:
+
+  ```swift
+  // ❌ leaks secret to device console
+  print("Authenticating with token: \(token)")
+
+  // ✅ visibility without exposure
+  Logger.info("Authentication attempt")
+  ```
+
+  Generated `Logger`/`Log.d`/`console.log` calls in the candidate plugin
+  must be reviewed before publish — see the Candidate Output Rule below.
+
 ## Candidate Output Rule
 
 Generated output is a reviewable starting point, not production-ready code.
