@@ -365,6 +365,33 @@ See `references/ios-implementation.md` and `references/android-implementation.md
 centralize these as a Swift enum and a Java constants class so the codes do
 not drift across methods.
 
+## When to Throw vs Return
+
+Reject (throw) for **exceptional failures** the caller cannot recover from in
+the normal flow. Return a status object for **expected conditions** the caller
+should branch on:
+
+```typescript
+// ✅ Throw for invalid input — exceptional, caller has a bug
+async getPhoto(options: PhotoOptions): Promise<Photo> {
+  if (options.quality < 0 || options.quality > 100) {
+    const err = new Error('quality must be 0-100');
+    (err as Error & { code: string }).code = 'INVALID_PARAMETER';
+    throw err;
+  }
+  // ...
+}
+
+// ✅ Return status for expected conditions — denied is a normal outcome
+async checkPermissions(): Promise<PermissionStatus> {
+  return { camera: 'denied' };
+}
+```
+
+The litmus test: if every well-written caller has to wrap the call in
+`try/catch` to handle a routine outcome, the API should return a status
+instead. If only buggy callers will see the failure, throw.
+
 ## Registration
 
 `src/index.ts` should register the plugin and lazily load the web implementation:
@@ -417,3 +444,52 @@ These shapes show up most often when a contract is generated from a verbal
 description that did not break operations into typed shapes. When in doubt,
 err toward more specific methods with `<MethodName>Options` /
 `<MethodName>Result` interfaces.
+
+## Resource Management Pattern
+
+For plugins that manage long-lived native resources (file handles, BLE
+connections, audio sessions, database transactions), expose them through a
+handle that the caller passes back on each operation. This avoids hiding
+state inside the plugin and makes lifecycles explicit:
+
+```typescript
+interface ResourcePlugin {
+  /** Open a resource and return an opaque handle. */
+  open(options: { id: string }): Promise<{ handle: string }>;
+
+  /** Operate on the resource. */
+  read(options: { handle: string }): Promise<{ data: string }>;
+  write(options: { handle: string; data: string }): Promise<void>;
+
+  /** Always require the caller to close. */
+  close(options: { handle: string }): Promise<void>;
+}
+```
+
+The native side keeps a `handle -> resource` map and rejects with
+`OPERATION_FAILED` when an unknown handle is passed. Document that consumers
+must `close()` to avoid leaks; for resources that must survive plugin
+unload, document the recovery semantics explicitly.
+
+## API Design Checklist
+
+Quick review pass before finalizing a `definitions.ts`:
+
+- [ ] Methods return `Promise<T>` or `Promise<void>`.
+- [ ] Each method takes at most one parameter named `options`
+      (or follow the established API name where mirroring an official plugin).
+- [ ] All data types have explicit `<MethodName>Options` /
+      `<MethodName>Result` interfaces.
+- [ ] Method names use action verbs from the naming table above.
+- [ ] Optional parameters have documented `@default` values.
+- [ ] Error codes are drawn from the standard taxonomy (`UNAVAILABLE`,
+      `PERMISSION_DENIED`, `INVALID_PARAMETER`, `OPERATION_FAILED`).
+- [ ] Event names are descriptive and identical across TS / web / iOS / Android.
+- [ ] Permission methods follow the standard `checkPermissions()` /
+      `requestPermissions()` pattern with typed `PermissionStatus`.
+- [ ] Platform differences are documented in JSDoc.
+- [ ] All public symbols have JSDoc with `@since`.
+- [ ] Return types are wrapped in objects (no bare `Promise<boolean>` or
+      `Promise<T[]>`) for future extensibility.
+- [ ] Native SDK dependencies declared in `Package.swift` / podspec /
+      `build.gradle` if mirroring an existing plugin that wraps an SDK.
