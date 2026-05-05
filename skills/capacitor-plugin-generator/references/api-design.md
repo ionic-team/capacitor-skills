@@ -141,7 +141,7 @@ the same TypeScript surface produces a divergent fork that loses upstream
 bug fixes, behavior parity, and platform-quirk handling.
 
 When the SDK is wrapped, the bridge class becomes a thin adapter — see
-`references/ios-guide.md` and `references/android-guide.md` for the SDK
+`references/ios-implementation.md` and `references/android-implementation.md` for the SDK
 adapter pattern.
 
 When the official plugin's bridge code is available locally, **read its
@@ -361,7 +361,7 @@ try {
 }
 ```
 
-See `references/ios-guide.md` and `references/android-guide.md` for how to
+See `references/ios-implementation.md` and `references/android-implementation.md` for how to
 centralize these as a Swift enum and a Java constants class so the codes do
 not drift across methods.
 

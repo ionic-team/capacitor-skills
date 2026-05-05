@@ -58,9 +58,9 @@ right native libraries from the start:
 
 Pass the detected dependencies into the generation flow alongside the API
 contract. If the official wraps a native SDK, the candidate's bridge
-becomes a thin adapter — see `references/ios-guide.md` "SDK Adapter
-Pattern" and `references/android-guide.md` "SDK Adapter Pattern". See
-`references/designing-api.md` "Native Dependency Detection" for the rule.
+becomes a thin adapter — see `references/ios-implementation.md` "SDK Adapter
+Pattern" and `references/android-implementation.md` "SDK Adapter Pattern". See
+`references/api-design.md` "Native Dependency Detection" for the rule.
 
 ## `--class-name` Anti-Pattern
 

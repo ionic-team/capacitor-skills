@@ -59,7 +59,7 @@ public class Example {
 
 ## Plugin Errors as Constants
 
-Centralize the standard error codes from `references/designing-api.md` so
+Centralize the standard error codes from `references/api-design.md` so
 the bridge does not pass raw strings around:
 
 ```java

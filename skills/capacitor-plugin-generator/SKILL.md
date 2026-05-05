@@ -83,7 +83,7 @@ with non-interactive flags when possible. Enforce name parity:
 
 ### Phase 3: Design the TypeScript API
 
-Read `references/designing-api.md`. Define `src/definitions.ts` before native
+Read `references/api-design.md`. Define `src/definitions.ts` before native
 implementation. Use options/result interfaces per method, string unions instead
 of enums, listener signatures for events, and JSDoc with `@since` everywhere.
 
@@ -96,21 +96,21 @@ Register the web layer through a dynamic import.
 
 ### Phase 5: Define Method Signatures
 
-Read `references/designing-api.md`. For every method, choose one bridge return
+Read `references/api-design.md`. For every method, choose one bridge return
 type: value, void, or callback. Use callback return types only for streams or
 long-lived watchers. Keep event names identical across TypeScript, web, iOS, and
 Android.
 
 ### Phase 6: Implement iOS
 
-Read `references/design-patterns.md` and `references/ios-guide.md`. Use the
+Read `references/architecture-patterns.md` and `references/ios-implementation.md`. Use the
 Bridge pattern by default: a thin Capacitor plugin class delegates to an
 implementation class. Use a Facade only for complex plugins with multiple native
 subsystems, permission flows, or lifecycle concerns.
 
 ### Phase 7: Implement Android
 
-Read `references/design-patterns.md` and `references/android-guide.md`. Use the
+Read `references/architecture-patterns.md` and `references/android-implementation.md`. Use the
 Bridge pattern by default: a thin `Plugin` class delegates to an implementation
 class. Use a Facade only for complex plugins with multiple managers, permission
 flows, services, activities, or lifecycle hooks.
@@ -123,7 +123,7 @@ permissions, configuration, and listeners.
 
 ### Phase 9: Docgen and Verify
 
-Read `references/testing-and-workflow.md` and `references/publishing.md`.
+Read `references/testing-strategies.md` and `references/publishing.md`.
 Generate API docs from JSDoc with `npm run docgen`; do not hand-write API docs.
 Run the relevant verify commands for targeted platforms and record any
 environment-limited checks.
@@ -148,14 +148,13 @@ without explicit human review outside this skill.
 | Android compile error: `notifyListeners(...) has protected access in Plugin` | `notifyListeners()` is `protected` on `Plugin`. Call it only from inside a class that extends `Plugin`. If another class needs to emit events, return the data to the plugin and dispatch there, or expose a public wrapper on the plugin that calls `notifyListeners()` internally. |
 | Android compile error: `cannot find symbol: class …` for a `com.getcapacitor.*` import | The import does not exist on the installed `@capacitor/android` surface. Verify imports against the package source before generating; do not infer Capacitor classes from their names. |
 | Android compile error: `<method> in <Subclass> cannot override <method> in Plugin; attempting to assign weaker access privileges; was public` | A helper on the `Plugin` subclass collides with a `public` method that `com.getcapacitor.Plugin` already defines (e.g., `hasPermission`, `getPermissionState`, `notifyListeners`). Either rename the helper or match the parent's `public` visibility. |
-| Android compile error: `<method> in <Subclass> cannot override <method> in Plugin: attempting to assign weaker access privileges; was public` | A helper on the plugin bridge collided with a `public` method already provided by `com.getcapacitor.Plugin` (e.g., `hasPermission`, `getPermissionState`). Use the inherited method directly, override with matching `public` visibility, or pick a non-colliding name for the helper. |
 | TypeScript build error: `Cannot find type definition file for '<name>'` or `Invalid module name in augmentation, module '<name>' cannot be found` | The augmented module is not installed. Add it to `devDependencies` (and to `tsconfig.json` `compilerOptions.types` if a triple-slash reference is used). Applies to any module augmentation, not just `@capacitor/cli`. |
 | TypeScript build error: `Interface 'X' incorrectly extends interface 'Y'. Property 'Z' is optional in type 'X' but required in type 'Y'` (or the symmetric error) | Do not redeclare members the built-in lib type already provides. Use the lib type directly, or augment via `declare global { interface Y { newMember?: ... } }` for genuinely new members only. Use `'name' in target` runtime guards for capability checks. |
 | `npm run docgen` produces empty output | Add JSDoc to `src/definitions.ts`; docgen reads the TypeScript contract. |
 | Web API absent in target browser | Use `unavailable()` when the API exists but is missing here; use `unimplemented()` when no web equivalent exists. |
 | Structured YAML is rejected | Validate against `references/input-contract.md`; ensure required base fields are present and blockers are empty. |
 | Generated output looks too broad | Split unrelated capabilities into separate plugins and regenerate with a smaller API surface. |
-| Generated native code reimplements logic the official plugin delegates to a native SDK | Inspect the official plugin's `.podspec` / `Package.swift` / `android/build.gradle` for native SDK dependencies. If present, declare the same SDK and write a thin adapter — see `references/designing-api.md` "Native Dependency Detection". |
+| Generated native code reimplements logic the official plugin delegates to a native SDK | Inspect the official plugin's `.podspec` / `Package.swift` / `android/build.gradle` for native SDK dependencies. If present, declare the same SDK and write a thin adapter — see `references/api-design.md` "Native Dependency Detection". |
 
 ## Related Skills
 
@@ -166,13 +165,13 @@ without explicit human review outside this skill.
 
 - `references/input-contract.md`: Structured YAML contract for generator input.
 - `references/scaffolding.md`: Generator invocation, name parity, and scaffold verification.
-- `references/designing-api.md`: TypeScript API design, JSDoc, event signatures, and method return types.
+- `references/api-design.md`: TypeScript API design, JSDoc, event signatures, and method return types.
 - `references/web-guide.md`: WebPlugin patterns, dynamic import, feature detection, and errors.
-- `references/design-patterns.md`: Bridge and Facade patterns plus event parity.
-- `references/ios-guide.md`: iOS bridge, implementation class, permissions, dependencies, and Podspec.
-- `references/android-guide.md`: Android bridge, implementation class, permissions, dependencies, and Gradle.
-- `references/plugin-configuration.md`: Capacitor config keys under `plugins.<PluginJSName>`.
-- `references/testing-and-workflow.md`: Local linking, verify commands, hooks, and review workflow.
+- `references/architecture-patterns.md`: Bridge and Facade patterns plus event parity.
+- `references/ios-implementation.md`: iOS bridge, implementation class, permissions, dependencies, and Podspec.
+- `references/android-implementation.md`: Android bridge, implementation class, permissions, dependencies, and Gradle.
+- `references/configuration.md`: Capacitor config keys under `plugins.<PluginJSName>`.
+- `references/testing-strategies.md`: Local linking, verify commands, hooks, and review workflow.
 - `references/publishing.md`: Package fields, docgen, checklist, and dry-run publishing.
 - `references/sample-app.md`: Sample app requirements that exercise the full API.
 - `references/permission-patterns.md`: Deep-dive on permission flows — multi-permission DispatchGroup on iOS, location delegate, check-before-use / just-in-time / deferred consumer patterns, opening system settings.

@@ -73,11 +73,11 @@ receipt handlers, observer methods on system frameworks, deep-link handlers)
 should reach the plugin through a static accessor on the plugin class. The
 plugin may not be loaded when the event arrives; the background class must not
 assume a live plugin reference. This mirrors the Android pattern in
-`android-guide.md`.
+`android-implementation.md`.
 
 ## Plugin Errors as a Swift Enum
 
-Centralize the standard error codes from `references/designing-api.md` so
+Centralize the standard error codes from `references/api-design.md` so
 the bridge does not pass raw strings around:
 
 ```swift

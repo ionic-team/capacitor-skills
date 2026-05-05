@@ -204,7 +204,7 @@ realistic given the bridge constraints:
 
 Native-side targets are lower because UI framework code (UIKit, Activity
 lifecycle) is hard to cover in unit tests. Push business logic into plain
-classes (per the Testability Guidelines in `design-patterns.md`) so the
+classes (per the Testability Guidelines in `architecture-patterns.md`) so the
 non-UI portion can clear the 80%+ bar.
 
 ## Hooks
