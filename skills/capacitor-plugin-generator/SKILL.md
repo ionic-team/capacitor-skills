@@ -175,3 +175,5 @@ without explicit human review outside this skill.
 - `references/testing-and-workflow.md`: Local linking, verify commands, hooks, and review workflow.
 - `references/publishing.md`: Package fields, docgen, checklist, and dry-run publishing.
 - `references/sample-app.md`: Sample app requirements that exercise the full API.
+- `references/permission-patterns.md`: Deep-dive on permission flows — multi-permission DispatchGroup on iOS, location delegate, check-before-use / just-in-time / deferred consumer patterns, opening system settings.
+- `references/typescript-implementation.md`: Deep-dive on TypeScript layer — singleton plugin pattern, typed error classes, full event listener handle bookkeeping, helper utilities, Jest scaffolding.

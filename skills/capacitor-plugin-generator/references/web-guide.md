@@ -74,6 +74,22 @@ directly rather than redeclaring its members.
   at compile time — the lib already encodes optionality where the spec marks
   it.
 
+## Web Implementation Strategies
+
+Pick the right strategy per method. Same TypeScript surface, different web
+behavior depending on whether a Web API exists:
+
+| Strategy       | When to use                                          | Example                                          |
+| ---            | ---                                                  | ---                                              |
+| **Web API**    | Browser has a real API for this capability           | Geolocation, Battery Status, Web Notifications   |
+| **Polyfill**   | Behavior can be simulated with adjacent browser APIs | Storage (IndexedDB), HTTP (fetch with retries)   |
+| **Mock data** | Useful only for testing without a device             | Device info, hardware features                   |
+| **Throw**      | No web equivalent exists at all                     | NFC, Bluetooth, specific sensors                 |
+
+Mock data should be marked clearly (`console.warn(...)` on each call) so
+nobody ships it. Prefer throwing `unimplemented()` over silently returning
+fake values when the platform answer is "you cannot do this on web."
+
 ## Events
 
 If the plugin emits events:

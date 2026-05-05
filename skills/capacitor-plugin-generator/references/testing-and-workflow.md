@@ -187,6 +187,26 @@ describe('ExampleWeb', () => {
 The `configurable: true` flag is what lets a later test redefine the property
 to simulate the API being unavailable.
 
+## Coverage Targets by Layer
+
+Pragmatic targets a candidate plugin can aim for. Configure these in
+`jest.config.js` (TypeScript), Xcode test plans (iOS), and Gradle test
+tasks (Android). Higher is better, but the numbers below reflect what's
+realistic given the bridge constraints:
+
+| Layer                  | Tooling             | Coverage target |
+| ---                    | ---                 | ---             |
+| TypeScript API         | Jest                | 80%+            |
+| Web implementation     | Jest + JSDOM        | 70%+            |
+| iOS native             | XCTest              | 60%+            |
+| Android native         | JUnit / Robolectric | 60%+            |
+| End-to-end integration | Sample app + Detox  | Key flows only  |
+
+Native-side targets are lower because UI framework code (UIKit, Activity
+lifecycle) is hard to cover in unit tests. Push business logic into plain
+classes (per the Testability Guidelines in `design-patterns.md`) so the
+non-UI portion can clear the 80%+ bar.
+
 ## Hooks
 
 If generated output needs package lifecycle hooks, prefer npm scripts and keep

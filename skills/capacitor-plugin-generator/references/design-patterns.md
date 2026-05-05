@@ -94,6 +94,128 @@ Generated code must respect this:
 Treat this as a non-negotiable rule. Violations surface as access-modifier
 compile errors on Android and silent no-ops or crashes on iOS.
 
+## Permission-Gated Access
+
+For methods that require runtime permissions, gate the action on the
+current authorization state and reject with a consistent code if access
+isn't granted. Do not auto-prompt inside an unrelated method — let the
+caller invoke `requestPermissions()` first.
+
+```swift
+@objc func capturePhoto(_ call: CAPPluginCall) {
+    let status = AVCaptureDevice.authorizationStatus(for: .video)
+    switch status {
+    case .authorized:
+        performCapture(call)
+    case .notDetermined:
+        call.reject("Permission not requested. Call requestPermissions() first.",
+                    "PERMISSION_DENIED")
+    case .denied, .restricted:
+        call.reject("Camera permission denied. Direct user to Settings.",
+                    "PERMISSION_DENIED")
+    @unknown default:
+        call.reject("Unknown permission status.", "OPERATION_FAILED")
+    }
+}
+```
+
+The same shape applies on Android via `getPermissionState(alias)`. The
+contract: `checkPermissions()` reports state, `requestPermissions()` may
+prompt, gated methods reject without prompting.
+
+## Background Tasks
+
+Long-running operations (downloads, uploads, transcoding, large file
+processing) should not block a single `Promise<Result>`. Model them as a
+task that returns a `taskId` immediately, emits `progress` events, and can
+be cancelled.
+
+```typescript
+export interface DownloadPlugin {
+  /** Start a download. Resolves with a task id immediately. */
+  startDownload(options: { url: string }): Promise<{ taskId: string }>;
+
+  /** Cancel a previously started task. */
+  cancelDownload(options: { taskId: string }): Promise<void>;
+
+  /** Emitted as the task makes progress (0-100). */
+  addListener(
+    eventName: 'downloadProgress',
+    listenerFunc: (event: { taskId: string; percent: number }) => void,
+  ): Promise<PluginListenerHandle>;
+
+  /** Emitted once when the task completes (or fails). */
+  addListener(
+    eventName: 'downloadComplete',
+    listenerFunc: (event: { taskId: string; uri?: string; error?: string }) => void,
+  ): Promise<PluginListenerHandle>;
+}
+```
+
+The native side keeps a `taskId -> task` map, dispatches progress through
+the plugin's `notifyListeners` (per the Event Dispatch Locality rule), and
+removes the entry on completion or cancel. Do not return a single
+`Promise<Result>` that resolves only when the task finishes — consumers
+need progress visibility and cancellation.
+
+## When to Split a Plugin
+
+Generate one plugin per cohesive capability. Split when any of these are
+true:
+
+- More than ~10 unrelated public methods.
+- Different methods need different runtime permissions (e.g., camera vs
+  contacts vs location in one plugin).
+- Different methods have different platform support (some iOS-only, some
+  Android-only).
+- Versioning would benefit from independence (e.g., a stable core +
+  experimental adjacent feature).
+
+When splitting, prefer composition over inheritance: ship two small focused
+plugins and let consumer apps import both, rather than a single plugin with
+internal partitions.
+
+```typescript
+// Avoid: one plugin doing everything.
+import { DeviceUtils } from '@company/device-utils';
+const photo = await DeviceUtils.getPhoto();
+const pos = await DeviceUtils.getCurrentPosition();
+await DeviceUtils.writeFile({ path: 'p.jpg', data: photo.base64String });
+
+// Prefer: small plugins composed at the call site.
+import { Camera } from '@capacitor/camera';
+import { Geolocation } from '@capacitor/geolocation';
+import { Filesystem } from '@capacitor/filesystem';
+```
+
+## Testability Guidelines
+
+Two rules that keep the bridge unit-testable in isolation from Capacitor:
+
+- **Inject platform dependencies.** Don't hard-code references to
+  `CLLocationManager`, `AVCaptureDevice`, etc. inside the implementation
+  class. Take a protocol/interface in the constructor with a default
+  implementation that uses the real platform API; tests can pass a fake.
+
+  ```swift
+  protocol LocationProvider {
+      func currentLocation() throws -> CLLocation
+  }
+  class LocationImpl {
+      private let provider: LocationProvider
+      init(provider: LocationProvider = SystemLocationProvider()) {
+          self.provider = provider
+      }
+  }
+  ```
+
+- **Separate business logic from the bridge.** Plugin bridge methods
+  should be small: parse `CAPPluginCall` / `PluginCall` options, delegate
+  to a plain class, map the result. Put validation, format conversion,
+  computation in classes that have no Capacitor types in their public
+  surface — those classes can be tested with vanilla XCTest / JUnit / Jest
+  without mocking Capacitor.
+
 ## Bridge Performance
 
 Each call across the JavaScript ↔ native bridge has serialization and
