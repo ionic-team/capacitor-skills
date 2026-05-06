@@ -680,3 +680,86 @@ func testAsyncOperation() async throws {
 - [ ] Write XCTests for implementation class
 
 **Remember**: Swift Package Manager is the modern standard. The two-class pattern keeps your code clean and testable!
+
+---
+
+## Where `notifyListeners()` Is Callable
+
+`notifyListeners(_:data:)` is an instance method on `CAPPlugin`. It is callable
+from within the plugin class itself or any context where `self: CAPPlugin` is in
+scope. If a separate Swift implementation class, delegate, or notification
+observer needs to emit an event, dispatch through the plugin via a closure or a
+`weak` reference rather than passing the plugin object around.
+
+Background and lifecycle contexts (APNs forwarding from `AppDelegate`, push
+receipt handlers, observer methods on system frameworks, deep-link handlers)
+should reach the plugin through a static accessor on the plugin class. The
+plugin may not be loaded when the event arrives; the background class must not
+assume a live plugin reference. This mirrors the Android pattern in
+`android-implementation.md`.
+
+## Opening App Settings After Permanent Denial
+
+Once a user has denied a permission and chosen "Don't Ask Again", iOS will
+never re-prompt. The plugin can only deep-link to the system settings page so
+the user can change the choice manually.
+
+```swift
+@objc func openSettings(_ call: CAPPluginCall) {
+    guard let url = URL(string: UIApplication.openSettingsURLString) else {
+        call.reject("Cannot construct settings URL")
+        return
+    }
+    DispatchQueue.main.async {
+        UIApplication.shared.open(url) { success in
+            call.resolve(["opened": success])
+        }
+    }
+}
+```
+
+Expose this as `openSettings()` on the plugin contract whenever the API has a
+permission flow. The user-facing prompt for "permission denied" should offer
+this as a recovery path.
+
+## SDK Adapter Pattern
+
+When the official plugin (or the generation contract) declares a native SDK
+dependency — for example `IONCameraLib`, Stripe, Firebase, ML Kit, Auth0,
+RevenueCat — the bridge class is a thin adapter, not an implementation:
+
+- Parse `CAPPluginCall` options into the SDK's input types.
+- Call the SDK's async / completion API.
+- Map the SDK's result types back into JSON for `call.resolve(...)`.
+- Forward SDK errors through the standard `PluginError` enum.
+
+```swift
+import Capacitor
+import IONCameraLib   // or whichever SDK the official wraps
+
+@objc(ExamplePlugin)
+public class ExamplePlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "ExamplePlugin"
+    public let jsName = "Example"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "takePhoto", returnType: CAPPluginReturnPromise)
+    ]
+
+    @objc func takePhoto(_ call: CAPPluginCall) {
+        let options = parseTakePhotoOptions(call)
+        IONCameraLib.takePhoto(options) { [weak self] result in
+            switch result {
+            case .success(let photo):
+                call.resolve(self?.encode(photo) ?? [:])
+            case .failure(let error):
+                PluginError.operationFailed.reject(call, message: error.localizedDescription)
+            }
+        }
+    }
+}
+```
+
+The implementation file collapses to option / result mappers; the SDK owns
+the platform logic. Declare the SDK as a `Package.swift` dependency *and* a
+`.podspec` `s.dependency` line so consumers transitively install it through
+whichever distribution channel they use.
