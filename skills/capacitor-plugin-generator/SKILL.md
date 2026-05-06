@@ -20,6 +20,29 @@ Generate a reviewable Capacitor plugin candidate from either human intent or a
 structured YAML contract. The output should follow the official Capacitor plugin
 architecture, but it is a first pass that requires human review before release.
 
+## When to Use This Skill
+
+✅ **Use this skill when:**
+
+- Creating a new Capacitor plugin from scratch.
+- Adding native functionality (camera, sensors, storage, etc.) to a Capacitor app.
+- Designing plugin architecture and API contracts.
+- Implementing native code for iOS (Swift) or Android (Kotlin/Java).
+- Bridging native APIs to JavaScript/TypeScript.
+- Setting up plugin configuration and build systems.
+- Generating a plugin from a structured YAML contract handed off by the
+  `cordova-capacitor-plugin-migration` skill.
+
+❌ **Do NOT use this skill for:**
+
+- Building standard Capacitor apps (use Capacitor documentation instead).
+- Web-only features that don't require native bridges.
+- Modifying existing Capacitor core plugins.
+- *Analyzing* Cordova plugin structure (use `cordova-capacitor-plugin-migration`
+  first; that skill produces the input contract this skill consumes).
+- Upgrading existing plugins to newer Capacitor versions.
+- Publishing production-ready code without human review.
+
 ## Prerequisites
 
 | Requirement | Use |
@@ -134,10 +157,57 @@ Read `references/publishing.md`. Run the pre-publish checklist and dry run:
 `npm publish --access public --dry-run`. Do not publish the generated plugin
 without explicit human review outside this skill.
 
+## Best Practices
+
+### DO
+
+- ✅ Use command-line flags with `npm init @capacitor/plugin` so the
+  scaffolder runs non-interactively.
+- ✅ Detect entry mode (conversational vs structured YAML) before asking
+  questions. Skip elicitation entirely in structured mode.
+- ✅ Design the TypeScript API first (contract-first), then implement
+  web, iOS, and Android against that contract.
+- ✅ Implement the web layer for testing without devices, even when
+  most methods throw `unimplemented()`.
+- ✅ Inspect the official plugin's native dependencies when mirroring an
+  existing API; declare the same SDKs and write a thin adapter rather
+  than reimplementing.
+- ✅ Document every public symbol with JSDoc and `@since`.
+- ✅ Run `npm run fmt` before committing and `npm run verify` before
+  reporting completion.
+- ✅ Use the two-class pattern (bridge + implementation) on iOS and
+  Android for testability.
+- ✅ Match wire-format string and numeric values exactly when mirroring
+  an existing API. Look up the official `definitions.ts` rather than
+  guessing from human-friendly names.
+- ✅ Keep event names identical across TypeScript / web / iOS / Android.
+
+### DON'T
+
+- ❌ Mix concerns — keep the plugin focused on one capability.
+- ❌ Skip error handling. Reject with codes from the canonical 4-code
+  taxonomy (`UNAVAILABLE`, `PERMISSION_DENIED`, `INVALID_PARAMETER`,
+  `OPERATION_FAILED`).
+- ❌ Use callbacks instead of promises in the TypeScript surface.
+- ❌ Forget the web implementation, even for iOS/Android-only features.
+- ❌ Hard-code values that should be configurable. Use
+  `references/configuration.md` runtime plugin configuration.
+- ❌ Invent Capacitor classes, helpers, or import paths. Verify against
+  the installed `@capacitor/core`, `@capacitor/android`, and
+  `@capacitor/ios` packages.
+- ❌ Call `notifyListeners(...)` from outside the `Plugin` subclass —
+  see `references/architecture-patterns.md` "Event Dispatch Locality".
+- ❌ Publish from this skill. Run dry-run only with
+  `npm publish --access public --dry-run`.
+- ❌ Inspect or analyze Cordova source — that belongs to the sibling
+  migration skill.
+
 ## Error Handling
 
 | Symptom | Fix |
 | --- | --- |
+| `npm init @capacitor/plugin` fails with `Refusing to prompt in non-TTY environment` | Pass all required flags non-interactively: `npm init @capacitor/plugin <folder> -- --name "<npm-name>" --package-id "<reverse-dns>" --class-name "<PascalCase>" --description "<one-line>" --author "<name <email>>" --license "<SPDX>" --repo "<url>" --android-lang "<kotlin\|java>"`. See `references/scaffolding.md`. |
+| `npm init @capacitor/plugin` fails with `invalid option: --android-lang undefined: Must be either 'kotlin' or 'java'` | The `--android-lang` flag is required when running non-interactively. Add `--android-lang "kotlin"` (recommended for new plugins) or `--android-lang "java"` to the command. |
 | Plugin silently fails to load | Make `registerPlugin()` name match iOS `jsName` and Android `@CapacitorPlugin(name)`. |
 | Event not received in JS | Make the event name string identical across TypeScript, web, iOS, and Android. |
 | iOS method not callable from JS | Ensure the method is marked `@objc` and listed in `pluginMethods`. |
