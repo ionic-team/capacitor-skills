@@ -961,3 +961,232 @@ class MyPluginTest {
 - [ ] Declare permissions in AndroidManifest.xml
 
 **Remember**: Android has strict permission and threading requirements. Always test on real devices!
+
+---
+
+## Java File and Class Names
+
+Every Java source file may contain at most one `public` class, and the file
+name must match that public class name. When the plugin uses a separate
+implementation class, place each public class in its own file: bridge in
+`<ClassName>Plugin.java`, implementation in its own descriptive file (often
+`<ClassName>Impl.java` or `<ClassName>.java`).
+
+Kotlin does not enforce this rule, so when generating Kotlin do not blindly
+mirror Java's file layout — a single `.kt` file may contain multiple top-level
+classes. When generating Java, always pair file names with public class names.
+
+## Where `notifyListeners()` Is Callable
+
+`Plugin.notifyListeners(String name, JSObject data)` is `protected`. It can only
+be called from within a class that extends `Plugin`. If a separate
+implementation class, manager, service, broadcast receiver, or callback needs
+to emit an event, dispatch through the plugin class rather than holding a
+`Plugin` reference and calling `plugin.notifyListeners(...)`.
+
+Two acceptable shapes:
+
+1. **Return event data to the plugin and dispatch there** (preferred for
+   synchronous flows):
+
+   ```java
+   // inside the Plugin subclass
+   JSObject payload = implementation.compute();
+   notifyListeners("changed", payload);
+   ```
+
+2. **Expose a public wrapper on the plugin class** (for background contexts
+   that legitimately need to emit events while the plugin is loaded):
+
+   ```java
+   @CapacitorPlugin(name = "Example")
+   public class ExamplePlugin extends Plugin {
+       public void emit(String eventName, JSObject data) {
+           notifyListeners(eventName, data);
+       }
+   }
+   ```
+
+Do not pass `Plugin` as a constructor parameter to an implementation class
+purely so the implementation can call `plugin.notifyListeners(...)`. The
+access modifier will reject it at compile time.
+
+## Async Activity Results via `@ActivityCallback`
+
+When the plugin starts a system UI flow that returns a result (chooser, photo
+picker, document picker, OAuth, settings, share-with-result), prefer
+Capacitor's wrapper around `startActivityForResult`:
+
+```java
+startActivityForResult(call, intent, "onResult");
+
+@ActivityCallback
+private void onResult(PluginCall call, ActivityResult result) {
+    JSObject ret = new JSObject();
+    // map result.getData() into ret as needed
+    call.resolve(ret);
+}
+```
+
+Do not call `activity.startActivity(...)` followed by `call.resolve()`
+synchronously when the contract advertises a result — the resolve fires before
+the user picks anything.
+
+## Background and Lifecycle Event Dispatch
+
+Some plugins receive events from contexts that run outside the plugin's
+lifecycle: `FirebaseMessagingService`, broadcast receivers, intent filters,
+deep-link handlers, `Application.ActivityLifecycleCallbacks`, app shortcut
+targets. The plugin instance may not be loaded when these events arrive.
+
+Required pattern:
+
+1. Implement the platform-specific class as a real subclass of the platform
+   type (for example, extend `FirebaseMessagingService`). Do not generate a
+   stand-alone class with a service-like name and unused imports — the runtime
+   will not invoke it.
+2. From the background class, write the payload to a queue or shared store
+   keyed by event name.
+3. In the plugin's `load()`, drain the queue and dispatch through
+   `notifyListeners(...)` (which is in scope inside `load()`).
+4. While the plugin is loaded, the background class may call a static accessor
+   on the plugin's class object to deliver events directly. Never hold a
+   `Plugin` reference across process boundaries.
+
+Generated output for plugins of this shape must include the appropriate
+manifest `<service>`, `<receiver>`, or `<intent-filter>` registrations and
+README setup notes for any third-party SDK the app developer must install
+(FCM, APNs, OAuth providers, etc.). Mark these as required app-side setup,
+not plugin-internal.
+
+## Opening App Settings After Permanent Denial
+
+Once a user has denied a runtime permission and selected "Don't ask again",
+Android will not re-prompt. The plugin can only deep-link to the system app
+settings so the user can change the choice manually.
+
+```java
+@PluginMethod()
+public void openSettings(PluginCall call) {
+    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+    intent.setData(Uri.fromParts("package", getContext().getPackageName(), null));
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    try {
+        getContext().startActivity(intent);
+        JSObject ret = new JSObject();
+        ret.put("opened", true);
+        call.resolve(ret);
+    } catch (Exception e) {
+        call.reject("Cannot open settings", e);
+    }
+}
+```
+
+Expose this as `openSettings()` on the plugin contract whenever the API has a
+permission flow. The user-facing prompt for "permission denied" should offer
+this as a recovery path.
+
+## Do Not Shadow `Plugin` API Methods With Weaker Visibility
+
+`com.getcapacitor.Plugin` defines a number of `public` instance methods that
+plugins are expected to use or override: `hasPermission(String alias)`,
+`getPermissionState(String alias)`, `requestPermissionForAlias(...)`,
+`saveCall(PluginCall)`, `freeSavedCall()`, `notifyListeners(...)`, and others.
+
+When generating helpers on a `Plugin` subclass, do not declare a method with
+the same name and signature as one of these — the JVM treats it as an
+override, and Java rejects narrowing visibility:
+
+```java
+// REJECTED at compile time: hasPermission is public on Plugin.
+private boolean hasPermission(String alias) {  // ❌
+    return getPermissionState(alias) == PermissionState.GRANTED;
+}
+```
+
+Two acceptable shapes:
+
+1. **Rename the helper** so it does not collide:
+
+   ```java
+   private boolean isPermissionGranted(String alias) {  // ✅
+       return getPermissionState(alias) == PermissionState.GRANTED;
+   }
+   ```
+
+2. **Match the parent's visibility** if you genuinely intend to override:
+
+   ```java
+   @Override
+   public boolean hasPermission(String alias) {  // ✅
+       return super.hasPermission(alias);
+   }
+   ```
+
+The compiler error reads `<method> in <Subclass> cannot override <method> in
+Plugin; attempting to assign weaker access privileges; was public`. When that
+appears, check whether the helper name overlaps with a public method on
+`Plugin` and rename or widen visibility.
+
+## Plugin Errors as Constants
+
+Centralize the standard error codes from `api-design.md` so the bridge does
+not pass raw strings around:
+
+```java
+public final class PluginErrors {
+    public static final String UNAVAILABLE = "UNAVAILABLE";
+    public static final String PERMISSION_DENIED = "PERMISSION_DENIED";
+    public static final String INVALID_PARAMETER = "INVALID_PARAMETER";
+    public static final String OPERATION_FAILED = "OPERATION_FAILED";
+
+    private PluginErrors() {}
+}
+
+// Usage — message first, code second
+call.reject("Camera permission not granted", PluginErrors.PERMISSION_DENIED);
+```
+
+This keeps the wire format consistent — typos cannot drift between methods —
+and the constants match the iOS `PluginError` enum so consumers see the same
+code regardless of platform.
+
+## SDK Adapter Pattern
+
+When the official plugin (or the generation contract) declares a native SDK
+dependency — for example `io.ionic.libs:ioncamera-android`,
+`com.stripe:stripe-android`, Firebase, ML Kit — the bridge class is a thin
+adapter, not an implementation:
+
+- Parse `PluginCall` options into the SDK's input types.
+- Call the SDK's async API (callbacks, listeners, suspend functions).
+- Map the SDK's result types back into `JSObject` for `call.resolve(...)`.
+- Forward SDK errors through the standard `PluginErrors` constants.
+
+```java
+import io.ionic.libs.ioncamera.IonCameraSdk;  // SDK the official wraps
+import com.getcapacitor.PluginCall;
+
+@CapacitorPlugin(name = "Example")
+public class ExamplePlugin extends Plugin {
+
+    @PluginMethod()
+    public void takePhoto(PluginCall call) {
+        TakePhotoOptions options = parseTakePhotoOptions(call);
+        IonCameraSdk.getInstance().takePhoto(options, new IonCameraCallback() {
+            @Override
+            public void onSuccess(Photo photo) {
+                call.resolve(encode(photo));
+            }
+            @Override
+            public void onError(IonCameraException e) {
+                call.reject(e.getMessage(), PluginErrors.OPERATION_FAILED, e);
+            }
+        });
+    }
+}
+```
+
+The implementation file collapses to option / result mappers; the SDK owns
+the platform logic. Declare the SDK as a Gradle `implementation '...'` line
+in `android/build.gradle` so consumers transitively install it.

@@ -1306,3 +1306,105 @@ npm run lint     # Check → Run in CI/CD
 ```
 
 **Remember**: Use `fmt` + `verify` + `lint` religiously. Good tests catch bugs early and give confidence when refactoring!
+
+---
+
+## Local Linking
+
+To test the generated plugin from a sample app:
+
+```bash
+cd <plugin-root>
+npm install
+npm run build
+
+cd <sample-app>
+npm install
+npm install ../<plugin-root>
+npx cap sync
+```
+
+For web-only sample validation:
+
+```bash
+npm start
+```
+
+For native validation:
+
+```bash
+npx cap run ios
+npx cap run android
+```
+
+## Capacitor CLI Workflow
+
+Use these commands intentionally:
+
+| Command | When to use |
+| --- | --- |
+| `npx cap add ios` / `npx cap add android` | Add a native platform to a sample app that does not already have it. |
+| `npx cap sync` | After installing the local plugin, changing native plugin code, changing dependencies, editing Capacitor config, or rebuilding web assets for native testing. |
+| `npx cap copy` | After web-only sample app changes when native dependencies/config did not change. |
+| `npx cap open ios` / `npx cap open android` | Open the native IDE for simulator/device selection, signing, Gradle sync, or manual platform inspection. |
+| `npx cap run ios` / `npx cap run android` | Build and run the sample app on a simulator, emulator, or connected device. |
+
+If generated native code, plugin metadata, permissions, dependencies, or config
+changed, prefer `npx cap sync` over `npx cap copy`.
+
+## Hooks
+
+Capacitor 6.1+ lets plugins hook into CLI commands by adding scripts to
+`package.json`:
+
+```json
+{
+  "scripts": {
+    "capacitor:copy:before": "node scripts/before-copy.js",
+    "capacitor:copy:after": "node scripts/after-copy.js",
+    "capacitor:update:before": "node scripts/before-update.js",
+    "capacitor:update:after": "node scripts/after-update.js",
+    "capacitor:sync:before": "node scripts/before-sync.js",
+    "capacitor:sync:after": "node scripts/after-sync.js"
+  }
+}
+```
+
+Available hook events:
+
+| Event | Triggered |
+| --- | --- |
+| `capacitor:copy:before` | Before `npx cap copy` copies web assets. |
+| `capacitor:copy:after` | After `npx cap copy` completes. |
+| `capacitor:update:before` | Before `npx cap update` updates native dependencies. |
+| `capacitor:update:after` | After `npx cap update` completes. |
+| `capacitor:sync:before` | Before `npx cap sync` (which runs copy + update). |
+| `capacitor:sync:after` | After `npx cap sync` completes. |
+
+The `$CAPACITOR_PLATFORM_NAME` environment variable is set in hook scripts and
+contains the platform being processed (`android` or `ios`). Prefer npm scripts
+over Cordova-style plugin hooks.
+
+## Coverage Targets by Layer
+
+Pragmatic targets a candidate plugin can aim for. Higher is better, but the
+numbers below reflect what's realistic given the bridge constraints:
+
+| Layer                  | Tooling             | Coverage target |
+| ---                    | ---                 | ---             |
+| TypeScript API         | Jest                | 80%+            |
+| Web implementation     | Jest + JSDOM        | 70%+            |
+| iOS native             | XCTest              | 60%+            |
+| Android native         | JUnit / Robolectric | 60%+            |
+| End-to-end integration | Sample app + Detox  | Key flows only  |
+
+Native targets are lower because UI framework code (UIKit, Activity lifecycle)
+is hard to cover in unit tests. Push business logic into plain classes (per the
+Testability Guidelines in `architecture-patterns.md`) so the non-UI portion can
+clear the 80%+ bar.
+
+## Manual Validation Notes
+
+Some plugin categories require real devices, credentials, or store-facing
+configuration. Mark those as manual review items rather than claiming full
+runtime correctness — see the Candidate Output Rule in `architecture-patterns.md`.
