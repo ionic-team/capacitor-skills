@@ -394,14 +394,25 @@ call.reject("Error message", "ERROR_CODE", nil, errorData)
 
 ### Best Practices
 
+**Use the generator's canonical 4-code taxonomy.** The
+`capacitor-plugin-generator` skill enforces these four error codes; any
+custom codes you propose in the YAML must subtype one of these:
+
+| Code | Use for |
+| --- | --- |
+| `UNAVAILABLE` | Feature not supported on this platform / device / session. |
+| `PERMISSION_DENIED` | Runtime permission denied (or permanently denied). |
+| `INVALID_PARAMETER` | Argument missing, wrong type, or out of range. |
+| `OPERATION_FAILED` | Native operation failed for any other reason. |
+
 **Define error codes:**
 ```typescript
 // src/definitions.ts
 export enum MyPluginError {
+  UNAVAILABLE       = "UNAVAILABLE",
   PERMISSION_DENIED = "PERMISSION_DENIED",
-  INVALID_ARGUMENT = "INVALID_ARGUMENT",
-  NETWORK_ERROR = "NETWORK_ERROR",
-  UNKNOWN_ERROR = "UNKNOWN_ERROR"
+  INVALID_PARAMETER = "INVALID_PARAMETER",
+  OPERATION_FAILED  = "OPERATION_FAILED",
 }
 ```
 
@@ -410,7 +421,7 @@ export enum MyPluginError {
 // TypeScript
 if (!options.url) {
   throw {
-    code: MyPluginError.INVALID_ARGUMENT,
+    code: MyPluginError.INVALID_PARAMETER,
     message: "URL is required",
     details: { parameter: "url" }
   };
@@ -420,7 +431,7 @@ if (!options.url) {
 ```kotlin
 // Android
 if (url.isNullOrEmpty()) {
-    call.reject("URL is required", "INVALID_ARGUMENT")
+    call.reject("URL is required", "INVALID_PARAMETER")
     return
 }
 ```
@@ -428,10 +439,20 @@ if (url.isNullOrEmpty()) {
 ```swift
 // iOS
 guard let url = call.getString("url") else {
-    call.reject("URL is required", "INVALID_ARGUMENT")
+    call.reject("URL is required", "INVALID_PARAMETER")
     return
 }
 ```
+
+**Mapping Cordova error strings.** Cordova plugins typically pass free-form
+error strings to `callbackContext.error(...)`. When migrating:
+
+1. Group the original error strings into the four canonical buckets.
+2. If a single bucket is too coarse for callers (e.g., `OPERATION_FAILED`
+   covers both "network timeout" and "card declined"), add a structured
+   `details.cause` field — never invent a new top-level code.
+3. Preserve the original Cordova error string under `details.cordovaMessage`
+   for backwards-compatibility logs.
 
 ### Migration Checklist
 

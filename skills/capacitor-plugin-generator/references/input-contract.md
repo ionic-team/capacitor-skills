@@ -109,9 +109,24 @@ migration:
     tier_2: []
     tier_3: []
   cordova_to_capacitor_map:
-    - cordova: Example.echo(value, success, error)
-      capacitor: Example.echo({ value })
+    - cordova: "Example.echo(value, success, error)"
+      capacitor: "Example.echo({ value })"
+  notes:
+    - "Mirrors @capacitor/example v6.x definitions.ts (Foo enum casing)."
+    - "Weak-linked ImageIO declared in plugin.xml — emit s.weak_framework in podspec."
 ```
+
+Migration block field rules:
+
+- `blockers`, `warnings`, `notes` are arrays of free-form strings. `blockers`
+  stops generator handoff; `warnings` surface in the Phase 10 checkpoint but
+  do not stop; `notes` are advisory breadcrumbs for the reviewer (e.g.
+  "mirrors @capacitor/<name> wire format", "weak iOS framework requires
+  `s.weak_framework` in podspec", "vendored xcframework at
+  `migration.source_files.ios[0]`").
+- `cordova_to_capacitor_map` entries must be quoted strings. Bare JS syntax
+  like `Foo.bar(value, success, error)` is not valid YAML — it parses as a
+  mapping and fails the contract validator.
 
 If `migration.blockers` or `migration.hooks.tier_3` is non-empty, stop and ask
 for those issues to be resolved by the migration skill or a human. Do not

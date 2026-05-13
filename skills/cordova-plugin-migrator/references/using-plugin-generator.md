@@ -1,0 +1,180 @@
+# Using `capacitor-plugin-generator`
+
+This skill never generates a Capacitor plugin directly. Phase 11 hands a YAML
+plan to `capacitor-plugin-generator`, which runs its own playbook. This file
+covers how to build that YAML and how to phrase the handoff.
+
+## The Contract Is Authoritative
+
+The generator's `references/input-contract.md` defines the shape this skill
+must produce. **Do not invent fields. Do not rename existing ones. Do not
+emit a partial contract and assume the generator will fill in the rest.**
+
+If you cannot fill a required field, that is a Phase 10 checkpoint — stop and
+ask the user. It is not a Phase 11 handoff.
+
+## Required Base Contract
+
+Always emit the base block:
+
+```yaml
+plugin:
+  name: <kebab-case npm name>
+  package_id: <reverse-dns Android package id>
+  class_name: <PascalCase, no trailing 'Plugin'>
+  description: <one-line description>
+  repo_url: <repository URL or POC placeholder>
+  author: <author string or POC placeholder>
+  license: <SPDX>
+
+platforms: [ios, android, web]
+
+api:
+  methods: [...]
+  types: [...]
+  events: [...]
+
+permissions:
+  ios: [...]
+  android: [...]
+
+dependencies:
+  ios:
+    cocoapods: [...]
+    spm: [...]
+    system_frameworks: [...]
+  android:
+    gradle: [...]
+    maven_repos: [...]
+```
+
+Field-by-field rules live in the generator's
+`references/input-contract.md`. Read that file before producing YAML.
+
+## Optional `migration:` Block
+
+Append the migration block whenever this skill is the source:
+
+```yaml
+migration:
+  source: cordova
+  complexity: simple | moderate | complex | blocked
+  output_mode: side_by_side | in_place
+  blockers: []
+  warnings: []
+  language_modernization:
+    ios: { from: objective_c | swift, to: swift }
+    android: { from: java | kotlin, to: kotlin }
+  source_files:
+    ios: [src/ios/Foo.m, src/ios/Foo.h]
+    android: [src/android/Foo.java]
+    js: [www/foo.js]
+  hooks:
+    tier_1: []
+    tier_2: []
+    tier_3: []
+  cordova_to_capacitor_map:
+    - cordova: "Foo.bar(value, success, error)"   # quote every entry — JS syntax breaks YAML otherwise
+      capacitor: "Foo.bar({ value })"
+  notes: []
+```
+
+### Field rules for the migration block
+
+| Field | Rule |
+| --- | --- |
+| `source` | Always `cordova` for this skill. |
+| `complexity` | One of `simple`, `moderate`, `complex`, `blocked`. See `complexity-assessment.md`. |
+| `output_mode` | `side_by_side` by default. `in_place` only on explicit user opt-in. |
+| `blockers` | Free-form strings, one per blocker. The generator stops on non-empty. |
+| `warnings` | Free-form strings, one per warning. The generator surfaces these but does not stop. |
+| `language_modernization.ios.from` | `objective_c` or `swift`. |
+| `language_modernization.android.from` | `java` or `kotlin`. |
+| `source_files.*` | Paths relative to the Cordova plugin root. Used by the reviewer to diff against the generated output. |
+| `hooks.tier_1`, `hooks.tier_2`, `hooks.tier_3` | Arrays of `{ name, src, type, purpose }`. Tier 3 entries are *also* listed in `blockers`. |
+| `cordova_to_capacitor_map` | One row per public method. Helps the reviewer trace each generated method back to the Cordova original. |
+| `notes` | Free-form. Use for "mirrors `@capacitor/<name>` v<version>" style breadcrumbs. |
+
+## Wire-Format Fidelity When an Equivalent Exists
+
+When an official Capacitor equivalent exists, the migrator's job is largely
+to **pin the wire format** so the generator does not re-derive enum casing,
+event names, or method names from human-friendly strings.
+
+Read the equivalent's `definitions.ts`. For each enum, listener, method, and
+result type, mirror the exact string. Example pattern:
+
+```yaml
+api:
+  types:
+    - name: CameraResultType
+      kind: union
+      values: [uri, base64, dataUrl]   # exact strings from @capacitor/camera
+    - name: CameraSource
+      kind: union
+      values: [PROMPT, CAMERA, PHOTOS] # exact casing from @capacitor/camera
+  events:
+    - name: cameraDidChange            # if an event exists, use the exact string
+```
+
+Add a `migration.notes` line:
+
+```yaml
+migration:
+  notes:
+    - Mirrors @capacitor/camera v6.x definitions.ts (CameraResultType, CameraSource)
+```
+
+The generator skill's "Native Dependency Detection" rule then triggers an
+SDK-adapter pattern instead of a reimplementation.
+
+## Phase 11 Handoff Invocation
+
+The actual handoff is short. Surface the YAML in a fenced block and one line
+that says, in effect, "run the generator skill on this YAML."
+
+Example handoff message:
+
+> The migration plan is ready. Pass this YAML to `capacitor-plugin-generator`:
+>
+> ```yaml
+> plugin: { ... }
+> platforms: [...]
+> api: { ... }
+> migration: { ... }
+> ```
+>
+> Note: complexity is `moderate`, output mode is `side_by_side`, and 2
+> warnings are recorded. There are no blockers. The generator will run its
+> own Phases 1–10.
+
+Do not include `# TODO` placeholders, partial fields, or "the generator will
+figure this out" comments. If you would write those, you are not ready for
+Phase 11 — return to Phase 9.
+
+## What the Generator Will Reject
+
+The generator skill rejects YAML with any of:
+
+1. Missing `plugin.name`, `plugin.package_id`, `plugin.class_name`,
+   `plugin.author`, `plugin.license`, or `plugin.repo_url`.
+2. Empty `platforms` array.
+3. `api.methods` referencing a type that is not declared in `api.types`.
+4. `api.events` whose name does not match the wire-format string elsewhere
+   in the contract.
+5. Non-empty `migration.blockers`.
+6. Non-empty `migration.hooks.tier_3`.
+
+Treat each of these as a Phase 9 bug in this skill, not a Phase 11 problem
+in the generator. Fix the YAML here before re-invoking the generator.
+
+## Boundary Rules
+
+- The generator owns scaffolding, native code, web layer, sample app,
+  docgen, and verify. Do not pre-emit any of those artifacts from this
+  skill.
+- This skill owns Cordova source analysis. Do not ask the generator to read
+  `plugin.xml` or any iOS/Android Cordova source.
+- If the generator asks for something the contract does not currently
+  capture, the bug is in the contract or in this skill's analysis — not in
+  the generator. Update Phase 9 here and re-hand the YAML.

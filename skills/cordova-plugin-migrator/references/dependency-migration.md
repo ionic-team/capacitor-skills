@@ -16,16 +16,53 @@ This reference provides detailed guidance on identifying and migrating third-par
 
 ## Overview
 
-Third-party dependencies are a critical aspect of plugin migration. Cordova automatically injects dependencies via plugin.xml, while Capacitor requires manual dependency management in native projects.
+Third-party dependencies are a critical aspect of plugin migration. Cordova automatically injects dependencies via plugin.xml, while Capacitor splits responsibility between the plugin author (who bundles deps inside the plugin package) and the consumer (who occasionally has to add things Gradle/CocoaPods cannot propagate — custom Maven repos, signed-binary copies, manifest/Info.plist entries).
 
 **Key Differences:**
 
 | Aspect | Cordova | Capacitor |
 |--------|---------|-----------|
 | **Declaration** | plugin.xml `<framework>` tags | Native dependency files (Podfile, build.gradle) |
-| **Installation** | Automatic during plugin install | Manual by app developer |
-| **Version Management** | Fixed in plugin.xml | Flexible in native projects |
+| **Installation** | Automatic during plugin install | Plugin's own gradle/podspec for standard deps; consumer config for non-propagating items |
+| **Version Management** | Fixed in plugin.xml | Plugin's gradle/podspec |
 | **Dependency Type** | iOS: CocoaPods, Frameworks<br>Android: Gradle, JARs | iOS: CocoaPods, SPM<br>Android: Gradle |
+
+---
+
+## Ownership Model (READ THIS FIRST)
+
+Before writing any "Add the following to your build.gradle" line, identify
+**who** is supposed to add it. Capacitor plugins split into two distinct
+audiences:
+
+| Who | What they add | Where it goes |
+| --- | --- | --- |
+| **Plugin author** (you, producing the Capacitor port) | All standard `implementation '...'` Gradle lines, all `s.dependency '...'` CocoaPods lines, `vendored_frameworks` for shipped binaries | Plugin's own `android/build.gradle` and `<PluginName>.podspec` — bundled inside the npm package |
+| **Consumer** (the app developer using the plugin) | Custom Maven repository URLs, manifest `<uses-permission>` and Info.plist `NSXxxUsageDescription`, Xcode capabilities (Apple Pay, Push, etc.), signed-binary local copies that cannot ship via npm | Host app's root `android/build.gradle` / `android/settings.gradle`, `android/app/src/main/AndroidManifest.xml`, `ios/App/App/Info.plist`, Xcode "Signing & Capabilities" |
+
+The split exists because Gradle/CocoaPods propagate `implementation` /
+`dependency` declarations transitively from a plugin module to its
+consumer's app, but they **do not** propagate `repositories {}` blocks,
+manifest entries, plist entries, or signing capabilities.
+
+When the migrator emits `MIGRATION.md` or fills in `migration.warnings`, the
+distinction must be explicit. Phrasing like *"add this to your app's
+`android/app/build.gradle`"* is correct only for the consumer-side items
+above. For everything else, the plugin's own gradle file owns it and the
+consumer takes no action.
+
+### Forward reference: `build-actions-generator` (ODC only, future)
+
+For plugins targeting OutSystems Developer Cloud, the planned
+`build-actions-generator` skill will emit a `.build-actions/` config that
+encodes every consumer-side item above as declarative YAML applied
+automatically by the ODC build pipeline. When that skill is available,
+ODC-targeted migrations should rely on it for the consumer surface instead
+of asking app developers to hand-edit native projects.
+
+For npm-only plugins (the general Capacitor ecosystem), the manual steps
+documented in this file remain the canonical path. Build Actions is not
+generic — it is ODC platform plumbing.
 
 ---
 
@@ -92,6 +129,7 @@ Dependencies are declared using `<framework>` tags:
 <framework src="CoreLocation.framework" />
 <framework src="MapKit.framework" />
 <framework src="AVFoundation.framework" />
+<framework src="ImageIO.framework" weak="true" />
 ```
 
 **Migration Strategy:** ✅ **Low Complexity**
@@ -100,6 +138,35 @@ System frameworks are built into iOS and don't require CocoaPods. In Capacitor:
 
 **Option 1: Automatic Linking (Preferred)**
 Most system frameworks are automatically linked by Xcode. No action needed.
+
+**Weak-Linked Frameworks**
+
+When the Cordova `<framework>` element has `weak="true"`, the framework is
+optionally linked — the app must run on iOS versions where it may not be
+available. Carry this forward in the generated podspec:
+
+```ruby
+# Strong link (default)
+s.framework  = 'CoreLocation', 'AVFoundation'
+
+# Weak link (optional, may be absent on older iOS)
+s.weak_framework = 'ImageIO'
+```
+
+The generator's input contract (`capacitor-plugin-generator/references/input-contract.md`)
+does not currently distinguish strong vs weak framework links in
+`dependencies.ios.system_frameworks`. Until the contract adds a
+`weak_system_frameworks` field, surface weak links in `migration.notes`:
+
+```yaml
+dependencies:
+  ios:
+    system_frameworks: [CoreLocation, AVFoundation]
+
+migration:
+  notes:
+    - "iOS weak-link: ImageIO.framework — generator should emit s.weak_framework = 'ImageIO' in the podspec"
+```
 
 **Option 2: Manual Linking (If Needed)**
 If the framework isn't automatically linked:
@@ -136,41 +203,44 @@ These frameworks are automatically linked by Xcode. No manual configuration requ
 
 **Migration Strategy:** ⚠️ **Moderate Complexity**
 
-CocoaPods dependencies must be manually added to the app's Podfile.
+Standard CocoaPods deps belong in **the plugin's own `<PluginName>.podspec`**
+as `s.dependency '...'` entries — the plugin author's responsibility. When
+the consumer runs `pod install`, CocoaPods resolves them transitively. The
+consumer does not add them to their Podfile.
 
-**Steps:**
-1. Identify all CocoaPods dependencies
-2. Check for version compatibility with current iOS/Xcode
-3. Document manual installation in README
+**Plugin author authors this (inside the Capacitor plugin package):**
 
-**Documentation Template:**
-```markdown
-### iOS CocoaPods Setup
-
-Add the following to your `ios/App/Podfile`:
-
-\`\`\`ruby
-target 'App' do
-  # ... existing pods ...
-
-  # MyPlugin dependencies
-  pod 'GoogleMaps', '~> 3.5.0'
-  pod 'Alamofire', '~> 5.4'
-  pod 'SwiftyJSON', '~> 5.0'
+```ruby
+# capacitor-myplugin/CapacitorMyPlugin.podspec
+Pod::Spec.new do |s|
+  s.name = 'CapacitorMyPlugin'
+  # ...
+  s.dependency 'Capacitor'
+  s.dependency 'GoogleMaps', '~> 8.3.0'
+  s.dependency 'Alamofire', '~> 5.4'
+  s.dependency 'SwiftyJSON', '~> 5.0'
 end
-\`\`\`
-
-Then run:
-\`\`\`bash
-cd ios/App
-pod install
-\`\`\`
-
-**Version Compatibility:**
-- GoogleMaps 3.5.0+ requires iOS 12.0+
-- Alamofire 5.4+ requires iOS 10.0+
-- SwiftyJSON 5.0+ requires iOS 8.0+
 ```
+
+**Consumer-facing `MIGRATION.md` entry (only when version compatibility
+notes are needed):**
+
+```markdown
+### iOS requirements
+
+This plugin bundles its own CocoaPods dependencies. Your app does not need
+to add `pod 'GoogleMaps'` to the Podfile manually. Verify your host app
+meets:
+
+- iOS deployment target ≥ 13.0
+- Xcode 14.3+
+- `pod install --repo-update` after running `npx cap sync ios`
+```
+
+If pods need a non-default CocoaPods source (e.g., a private pod spec
+repo), that **is** a consumer-facing item — record it in
+`migration.warnings` and document the `source '<url>'` line for the
+consumer's Podfile.
 
 **Potential Issues:**
 - ❌ **Blocker**: Deprecated or abandoned pods (no updates in 3+ years)
@@ -180,27 +250,119 @@ pod install
 
 ### Swift Package Manager (SPM)
 
-**Cordova Declaration:**
-Rare in Cordova, but modern plugins may reference SPM packages.
+Modern Cordova plugins increasingly ship a `Package.swift` alongside the
+`<podspec>` block so the same source builds under both CocoaPods and SPM.
+The canonical tooling for that is
+[`cdv2spm`](https://github.com/andredestro/cordova-plugin-converter),
+and the canonical markers in `plugin.xml` are:
 
-**Migration Strategy:** ✅ **Low-Moderate Complexity**
-
-SPM is well-supported in Capacitor. Dependencies can be added via Xcode or Package.swift.
-
-**Documentation Template:**
-```markdown
-### iOS Swift Package Manager Setup
-
-Add the following Swift packages to your Xcode project:
-
-1. Open `ios/App/App.xcworkspace` in Xcode
-2. Go to File → Add Packages...
-3. Add the following packages:
-   - **Alamofire**: https://github.com/Alamofire/Alamofire (Up to Next Major: 5.0.0)
-   - **SwiftyJSON**: https://github.com/SwiftyJSON/SwiftyJSON (Up to Next Major: 5.0.0)
-
-Alternatively, add to `ios/App/App/Package.swift` if using SPM directly.
+```xml
+<platform name="ios" package="swift">
+  <podspec>
+    <pods use-frameworks="true">
+      <pod name="FirebaseAnalytics" spec="10.29.0" nospm="true" />
+    </pods>
+  </podspec>
+</platform>
 ```
+
+- `<platform package="swift">` — tells Cordova's iOS build to look for a
+  sibling `Package.swift` and prefer SPM.
+- `nospm="true"` on a `<pod>` element — tells the CocoaPods path to skip
+  this pod because the same dependency is being satisfied by `Package.swift`.
+- A `Package.swift` at the plugin root with one product, one target per
+  Swift source root, and `.product(name: "Cordova", package: "cordova-ios")`
+  in target dependencies so the Cordova umbrella header resolves under SPM.
+- Swift sources gain explicit `import Foundation` and `#if canImport(Cordova)`
+  guards because the umbrella import that CocoaPods provides isn't there
+  under SPM.
+
+#### What this means for the Capacitor port
+
+Capacitor 6+ supports SPM as a first-class iOS option. Plugins typically
+ship **both** `Package.swift` and `<PluginName>.podspec` so consumers can
+choose. The official Capacitor scaffolder (`npm init @capacitor/plugin`)
+generates both.
+
+When migrating a Cordova plugin that already has `cdv2spm`-style SPM
+support, the migrator should:
+
+1. Detect `<platform package="swift">` and `nospm="true"` markers.
+2. Read the existing `Package.swift` (if present at the Cordova plugin
+   root) and lift its `dependencies` array into the YAML's
+   `dependencies.ios.spm`.
+3. Lift any pods **without** `nospm="true"` into `dependencies.ios.cocoapods`
+   (those are CocoaPods-only deps without SPM equivalents).
+4. Set `migration.notes` to call out that the original plugin already had
+   SPM support — the generator should populate both `Package.swift` and
+   `.podspec` symmetrically.
+
+**Plugin author authors this (inside the Capacitor plugin package):**
+
+```swift
+// capacitor-myplugin/Package.swift
+let package = Package(
+    name: "CapacitorMyPlugin",
+    platforms: [.iOS(.v14)],
+    products: [.library(name: "CapacitorMyPlugin", targets: ["CapacitorMyPlugin"])],
+    dependencies: [
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "7.0.0"),
+        .package(url: "https://github.com/firebase/firebase-ios-sdk.git", from: "10.29.0")
+    ],
+    targets: [
+        .target(
+            name: "CapacitorMyPlugin",
+            dependencies: [
+                .product(name: "Capacitor",  package: "capacitor-swift-pm"),
+                .product(name: "Cordova",    package: "capacitor-swift-pm"),
+                .product(name: "FirebaseAnalytics", package: "firebase-ios-sdk")
+            ],
+            path: "ios/Sources/CapacitorMyPlugin")
+    ]
+)
+```
+
+(`capacitor-swift-pm` is the SPM-compatible Capacitor distribution; check
+the official Capacitor docs for the exact package name and required version
+at the time of generation.)
+
+```ruby
+# capacitor-myplugin/CapacitorMyPlugin.podspec
+Pod::Spec.new do |s|
+  s.dependency 'Capacitor'
+  s.dependency 'FirebaseAnalytics', '~> 10.29.0'
+end
+```
+
+#### YAML shape for SPM entries
+
+The generator's input contract is silent on the exact entry shape under
+`dependencies.ios.spm`. Use a flat string per entry that captures URL and
+version constraint:
+
+```yaml
+dependencies:
+  ios:
+    spm:
+      - "https://github.com/firebase/firebase-ios-sdk.git@from:10.29.0"
+      - "https://github.com/Alamofire/Alamofire.git@upToNextMajor:5.0.0"
+    cocoapods: []                    # only deps without SPM equivalents
+```
+
+If the generator-side contract gets a structured SPM schema later
+(e.g., `{url, version, products}`), migrate to it then. For now the
+string form is what the generator can parse without contract drift.
+
+#### When to flag as a blocker
+
+- ❌ SPM dependency is at a Git tag or branch that no longer resolves —
+  blocker until the URL is updated or an alternative is approved.
+- ❌ Plugin uses both `<framework custom="true">` (binary) and `Package.swift`
+  with conflicting symbol exports — blocker until vendor clarifies which to
+  use.
+- ⚠️ Plugin's `Package.swift` declares `platforms: [.iOS(.v15)]` but the
+  consumer's app targets iOS 13 — warning; consumer must bump deployment
+  target.
 
 ### Manual/Custom Frameworks
 
@@ -245,6 +407,55 @@ This plugin requires a custom framework that must be manually added:
 - ❌ **Blocker**: Framework requires bitcode (deprecated in Xcode 14+)
 - ⚠️ **Warning**: Framework is not XCFramework format (may cause architecture issues)
 
+### Vendored XCFrameworks Checked Into the Plugin Tree
+
+Some Cordova plugins ship a binary `.xcframework` directly in
+`src/ios/frameworks/`. Example from `cordova-outsystems-payments`:
+
+```xml
+<framework src="src/ios/frameworks/OSPaymentsLib.xcframework"
+           embed="true" custom="true" />
+```
+
+**Migration Strategy:** ✅ **Carry the binary forward** — this is **not** a
+blocker on its own. The binary is already publicly available (it ships with
+the plugin). The Capacitor plugin keeps the same vendored binary.
+
+**Steps:**
+
+1. Verify the xcframework contains the required slices (arm64 device,
+   arm64+x86_64 simulator). Run:
+   ```bash
+   plutil -p src/ios/frameworks/Foo.xcframework/Info.plist | head
+   ```
+2. Record the binary's source path in the migration YAML:
+   ```yaml
+   migration:
+     source_files:
+       ios:
+         - src/ios/frameworks/OSPaymentsLib.xcframework
+   ```
+3. Tell the generator to copy the directory to the new plugin's
+   `ios/Sources/` or `ios/Plugin/` location and reference it in the
+   `.podspec`:
+   ```ruby
+   s.vendored_frameworks = 'ios/Sources/OSPaymentsLib.xcframework'
+   ```
+
+**Blocker triggers (when this DOES become a blocker):**
+
+- ❌ Binary is missing simulator slices and the user needs simulator-based
+  development.
+- ❌ Binary is unsigned and the host project requires signed dependencies.
+- ❌ Binary's `Info.plist` declares an `IPHONEOS_DEPLOYMENT_TARGET` higher
+  than the host app's minimum target and the user has not consented to bump.
+
+**When NOT a blocker:**
+
+- ✅ Binary is publicly distributed alongside the plugin source.
+- ✅ Binary has both device and simulator slices.
+- ✅ Binary is properly code-signed by the vendor.
+
 ---
 
 ## Android Dependencies
@@ -260,44 +471,49 @@ This plugin requires a custom framework that must be manually added:
 
 **Migration Strategy:** ⚠️ **Moderate Complexity**
 
-Gradle dependencies must be manually added to the app's build.gradle.
+Standard Gradle deps belong in **the plugin's own `android/build.gradle`**
+— the plugin author's responsibility. The consumer does not add them.
+Gradle resolves them transitively when the plugin's npm package is linked
+via `npx cap sync`.
 
-**Steps:**
-1. Identify all Gradle dependencies
-2. Check for version compatibility with current Android SDK
-3. Verify AndroidX vs Support Library usage
-4. Check for transitive dependency conflicts
-5. Document manual installation in README
+**Plugin-author steps:**
+1. Identify all Gradle dependencies from `plugin.xml`.
+2. Check for version compatibility with current Android SDK.
+3. Verify AndroidX vs Support Library usage.
+4. Add the `implementation '...'` lines to the Capacitor plugin's
+   `android/build.gradle` `dependencies { }` block.
 
-**Documentation Template:**
-```markdown
-### Android Gradle Setup
+**Plugin author authors this (inside the Capacitor plugin package):**
 
-Add the following to your `android/app/build.gradle`:
-
-\`\`\`gradle
+```gradle
+// capacitor-myplugin/android/build.gradle
 dependencies {
-    // ... existing dependencies ...
+    implementation project(':capacitor-android')
 
-    // MyPlugin dependencies
+    // Migrated from Cordova plugin.xml <framework> entries:
     implementation 'com.google.android.gms:play-services-maps:18.1.0'
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
     implementation 'androidx.appcompat:appcompat:1.4.2'
 }
-\`\`\`
-
-**Minimum Requirements:**
-- Android SDK 21+ (Android 5.0)
-- Google Play Services 18.1.0+
-- AndroidX (not Support Library)
-
-**Syncing:**
-After adding dependencies, sync your project:
-\`\`\`bash
-cd android
-./gradlew build
-\`\`\`
 ```
+
+**Consumer-facing `MIGRATION.md` entry (only when version compatibility
+notes are needed):**
+
+```markdown
+### Android requirements
+
+This plugin bundles its own Gradle dependencies. Your app does not need to
+add them manually. Verify your host app meets:
+
+- `compileSdkVersion` 33+
+- `minSdkVersion` 22+
+- AndroidX (Capacitor 4+ requirement; Jetifier is not supported)
+```
+
+If the plugin's own gradle has version conflicts with the host app's
+gradle (e.g., two transitive okhttp versions), surface that in
+`migration.warnings` so the consumer knows to pin a resolution strategy.
 
 **Potential Issues:**
 - ❌ **Blocker**: Dependency uses Support Library (not AndroidX) - incompatible with modern Capacitor
@@ -316,20 +532,34 @@ cd android
 
 **Migration Strategy:** ⚠️ **Moderate-High Complexity**
 
-Custom Maven repositories must be added to the app's repositories configuration.
+Custom Maven repositories are one of the **consumer-side** items — Gradle
+does not propagate `repositories {}` blocks from a plugin module to the
+host app, so the consumer must add the URL to their own root
+`build.gradle` (or `settings.gradle` for projects using
+`dependencyResolutionManagement`). The plugin author still puts the
+`implementation` line in the plugin's own `android/build.gradle`.
 
-**Documentation Template:**
+**Plugin author authors this (inside the Capacitor plugin package):**
+
+```gradle
+// capacitor-myplugin/android/build.gradle
+dependencies {
+    implementation 'com.example:custom-sdk:1.0.0'
+}
+```
+
+**Consumer-facing `MIGRATION.md` entry:**
+
 ```markdown
-### Android Custom Repository Setup
+### Android custom Maven repository
 
-Add the following to your `android/build.gradle`:
+This plugin pulls one of its dependencies from a private Maven repo.
+Add the repository URL to **your host app's** root `android/build.gradle`:
 
 \`\`\`gradle
 allprojects {
     repositories {
         // ... existing repositories ...
-
-        // MyPlugin custom repository
         maven {
             url "https://maven.example.com/repository"
             credentials {
@@ -341,17 +571,24 @@ allprojects {
 }
 \`\`\`
 
-Add credentials to `gradle.properties`:
+(For projects using Gradle 7+'s `dependencyResolutionManagement` block,
+add the entry under `settings.gradle` `dependencyResolutionManagement.repositories` instead.)
+
+If the repo requires credentials, add them to your `gradle.properties`:
+
 \`\`\`properties
 EXAMPLE_MAVEN_USERNAME=your-username
 EXAMPLE_MAVEN_PASSWORD=your-password
 \`\`\`
 
-Then add the dependency to `android/app/build.gradle`:
-\`\`\`gradle
-implementation 'com.example:custom-sdk:1.0.0'
-\`\`\`
+You do **not** need to add the `implementation 'com.example:custom-sdk:1.0.0'`
+line to your app — the plugin's own gradle already declares it and Gradle
+will resolve it transitively once the repo is reachable.
 ```
+
+For ODC-targeted plugins, `build-actions-generator` (future) will emit a
+Build Actions config that adds the Maven URL automatically. Until then the
+consumer step above is manual.
 
 **Potential Issues:**
 - ❌ **Blocker**: Private repository requires authentication not available to end users
@@ -367,39 +604,53 @@ implementation 'com.example:custom-sdk:1.0.0'
 
 **Migration Strategy:** ⚠️ **High Complexity**
 
-Local library files must be manually copied and configured.
+Local library files come in two flavors with very different ownership:
 
-**Documentation Template:**
-```markdown
-### Android Local Library Setup
+| Case | Ships with the plugin? | Who handles it |
+| --- | --- | --- |
+| Vendor distributes the AAR publicly (or it is vendored in the original Cordova plugin's `src/android/libs/`) | Yes — copy into the Capacitor plugin's own `android/libs/` and the plugin's `build.gradle` references it. Bundled inside the npm package. | Plugin author. Consumer takes no action. |
+| Vendor requires the consumer to download a signed/licensed AAR themselves (cannot ship via npm) | No — the consumer must download and place the AAR in their host app. | Consumer. Plugin author documents the URL and target path. |
 
-This plugin requires a custom Android library:
+**Plugin-author authors this (vendored case, inside the Capacitor plugin
+package):**
 
-1. Download `custom-library.aar` from [source URL]
-2. Create directory `android/app/libs/` if it doesn't exist
-3. Copy `custom-library.aar` to `android/app/libs/`
-4. Add to `android/app/build.gradle`:
-
-\`\`\`gradle
+```gradle
+// capacitor-myplugin/android/build.gradle
 dependencies {
-    // ... existing dependencies ...
-
-    implementation files('libs/custom-library.aar')
-    // OR for all AAR files in libs:
     implementation fileTree(dir: 'libs', include: ['*.aar'])
 }
-\`\`\`
-
-5. Sync Gradle:
-\`\`\`bash
-cd android
-./gradlew build
-\`\`\`
-
-**Requirements:**
-- Library requires Android SDK 23+ (Android 6.0)
-- Compiled with Java 8+
 ```
+
+with the `.aar` copied into `capacitor-myplugin/android/libs/` — record
+the source path under `migration.source_files.android` so the generator
+picks it up.
+
+**Consumer-facing `MIGRATION.md` entry (only when the vendor forbids
+redistribution):**
+
+```markdown
+### Android local library (license-required)
+
+This plugin depends on `custom-library.aar`, which the vendor does not
+permit us to redistribute.
+
+1. Download `custom-library.aar` from [vendor URL].
+2. Place it at `android/app/libs/custom-library.aar` in your host app.
+3. Add to your **app's** `android/app/build.gradle`:
+   \`\`\`gradle
+   dependencies {
+       implementation files('libs/custom-library.aar')
+   }
+   \`\`\`
+4. Run `npx cap sync android`.
+
+This is the only Android binary you have to copy by hand — all other plugin
+dependencies are bundled inside the npm package.
+```
+
+The license-required path is the **only** time a consumer should add an
+`implementation files(...)` line. Treat it as a flagged blocker in the
+migration plan until the user confirms they can satisfy the license terms.
 
 **Potential Issues:**
 - ❌ **Blocker**: AAR file is not publicly available

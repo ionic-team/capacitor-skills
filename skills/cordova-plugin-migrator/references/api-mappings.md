@@ -67,6 +67,77 @@ export class MyPluginWeb extends WebPlugin implements MyPluginPlugin {
 | Bridge | Explicit `exec()` call | Automatic via `registerPlugin()` |
 | Web Support | Optional | Built-in with `WebPlugin` |
 
+### Stringified JSON Blob Arguments
+
+A common Cordova anti-pattern: the JavaScript layer passes a pre-serialized
+JSON string and the native handler parses it.
+
+**Cordova:**
+```javascript
+exports.setDetails = function(paymentDetails, accessToken, success, error) {
+    exec(success, error, 'OSPayments', 'setDetails',
+         [JSON.stringify(paymentDetails), accessToken]);
+};
+```
+
+**Native handler (Android Kotlin):**
+```kotlin
+private fun setDetailsAndTriggerPayment(args: JSONArray) {
+    val details = gson.fromJson(args.getString(0), PaymentDetails::class.java)
+    // ...
+}
+```
+
+**Native handler (iOS Swift):**
+```swift
+guard let json = command.argument(at: 0) as? String,
+      let data = json.data(using: .utf8),
+      let details = try? JSONDecoder().decode(PaymentDetails.self, from: data) else { return }
+```
+
+**Capacitor migration:** Replace the stringified blob with a strongly-typed
+TypeScript interface. Read the native parsing site to capture the schema.
+
+```typescript
+// src/definitions.ts
+export interface PaymentDetails {
+  amount: number;
+  currency: string;
+  merchant: { id: string; name: string };
+  items: PaymentItem[];
+}
+
+export interface OSPaymentsPlugin {
+  setDetails(options: {
+    paymentDetails: PaymentDetails;
+    accessToken?: string;
+  }): Promise<PaymentResult>;
+}
+```
+
+```kotlin
+// Android — Capacitor receives the typed object directly
+@PluginMethod
+fun setDetails(call: PluginCall) {
+    val details = call.getObject("paymentDetails")
+    // map JSObject → PaymentDetails data class
+}
+```
+
+**Migration YAML hint:**
+
+```yaml
+migration:
+  cordova_to_capacitor_map:
+    - cordova: "OSPayments.setDetails(JSON.stringify(details), token, ok, err)"
+      capacitor: "OSPayments.setDetails({ paymentDetails, accessToken })"
+api:
+  types:
+    - name: PaymentDetails
+      kind: interface
+      fields: [...]                # exact shape from the native parsing site
+```
+
 ---
 
 ## iOS Native Pattern
