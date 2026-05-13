@@ -2,6 +2,35 @@
 
 This reference covers how to design clean, intuitive TypeScript APIs for Capacitor plugins.
 
+The TypeScript contract drives every generated platform. Design `src/definitions.ts`
+before implementing web, iOS, or Android.
+
+## Contract Rules
+
+A short list of non-negotiables that every method on a plugin interface must follow:
+
+- Methods return `Promise<T>` or `Promise<void>`.
+- A method has at most one parameter named `options` (or follow the established
+  parameter name where mirroring an existing public API).
+- Name method options `<MethodName>Options`.
+- Name method results `<MethodName>Result`.
+- Define separate interfaces for options, results, and event payloads.
+- Use string union types instead of TypeScript enums.
+- Use `undefined` rather than `null` for absent optional values.
+- Import type-only symbols with `import type` and avoid unused imports.
+- Use stable cross-platform units and ISO 8601 strings for dates.
+- Add JSDoc and `@since` to every public interface, method, property, type,
+  and listener overload.
+- If any method needs runtime permission, special settings access, or manual
+  native setup, add `checkPermissions()` and `requestPermissions()` to the API
+  unless Capacitor provides a more specific established pattern.
+- If the same user-facing capability has both local and system-wide variants,
+  model them explicitly instead of hiding platform differences.
+
+The rest of this reference unpacks each rule with examples.
+
+---
+
 ## Core Principles
 
 ### 1. Promise-Based APIs
@@ -73,18 +102,26 @@ async photo(): Promise<Photo>              // Too vague
 
 ### Action Verbs
 
-| Verb | Usage | Example |
-|------|-------|---------|
-| `get` | Retrieve current state | `getBatteryStatus()`, `getLocation()` |
-| `check` | Test condition | `checkPermissions()`, `isAvailable()` |
-| `request` | Ask for something | `requestPermissions()`, `requestToken()` |
-| `start` | Begin continuous operation | `startMonitoring()`, `startScanning()` |
-| `stop` | End continuous operation | `stopMonitoring()`, `stopScanning()` |
-| `create` | Make new resource | `createFile()`, `createNotification()` |
-| `delete` | Remove resource | `deleteFile()`, `removeNotification()` |
-| `update` | Modify existing | `updateSettings()`, `modifyRecord()` |
-| `open` | Open/show UI | `openSettings()`, `showDialog()` |
-| `close` | Close UI | `closeDialog()`, `dismissAlert()` |
+The verb dictates the method's contract — readers should be able to predict
+the return shape from the name alone.
+
+| Verb              | Usage                                   | Example                                           |
+|-------------------|-----------------------------------------|---------------------------------------------------|
+| `get`             | Retrieve current state, no side effects | `getBatteryStatus()`, `getCurrentPosition()`      |
+| `check`           | Test condition, no prompt               | `checkPermissions()`, `isAvailable()`             |
+| `request`         | Ask the user or system for something    | `requestPermissions()`, `requestToken()`          |
+| `start`           | Begin continuous operation              | `startMonitoring()`, `startScanning()`            |
+| `stop`            | End continuous operation                | `stopMonitoring()`, `stopScanning()`              |
+| `create`          | Make new resource                       | `createFile()`, `createNotification()`            |
+| `delete`/`remove` | Remove resource                         | `deleteFile()`, `removeNotification()`            |
+| `update`          | Mutate existing state                   | `updateSettings()`, `modifyRecord()`              |
+| `open`            | Open / show platform UI                 | `openSettings()`, `showDialog()`                  |
+| `close`           | Close / dismiss UI                      | `closeDialog()`, `dismissAlert()`                 |
+| `add`             | Add to a collection                     | `addListener()`                                   |
+| `remove`          | Remove from a collection                | `removeListener()`, `removeAllListeners()`        |
+
+Avoid bare nouns (`status()`, `permissions()`) — readers cannot tell whether
+they read or write.
 
 ### Naming Examples
 
@@ -152,6 +189,11 @@ async writeFile(
 await Filesystem.writeFile('notes.txt', 'Hello', 'utf8', true);
 ```
 
+The options interface is named `<MethodName>Options` (e.g., `WriteFileOptions`
+for `writeFile`). The corresponding result type, if any, is named
+`<MethodName>Result`. The pair gives reviewers a predictable mental model
+and makes generated docs easier to scan.
+
 ### Optional vs Required
 
 ```typescript
@@ -217,20 +259,27 @@ async getLocation(): Promise<{
 
 ### Boolean Results
 
+Wrap booleans in an object so the API can grow without breaking consumers.
+Adding a field to a result object is non-breaking; changing a primitive
+return type is breaking.
+
 ```typescript
-// ✅ Good - Explicit naming
+// ✅ Good - Explicit naming, extensible
 async isAvailable(): Promise<{ available: boolean }>
 async checkConnection(): Promise<{ connected: boolean }>
 
-// ❌ Bad - Ambiguous
+// ❌ Bad - Ambiguous and brittle
 async available(): Promise<boolean>  // Is this checking or setting?
 ```
 
 ### List Results
 
+Same rule for arrays — wrap in an object so future fields can be added
+non-breakingly:
+
 ```typescript
-// ✅ Good - Named array property
-async listFiles(): Promise<{ files: FileInfo[] }>
+// ✅ Good - Named array property, extensible
+async listFiles(): Promise<{ files: FileInfo[]; truncated?: boolean }>
 
 interface FileInfo {
   name: string;
@@ -242,43 +291,71 @@ interface FileInfo {
 async listFiles(): Promise<FileInfo[]>
 ```
 
+### `FeatureAvailability` Shape
+
+For "is this feature available here?" methods, the canonical shape includes
+a reason field so consumers can show appropriate messaging:
+
+```typescript
+export interface FeatureAvailability {
+  available: boolean;
+  /** Why the feature is unavailable on this device/session. */
+  reason?: string;
+}
+
+interface MyPlugin {
+  isAvailable(): Promise<FeatureAvailability>;
+}
+```
+
 ---
 
 ## Error Handling
 
-### Consistent Error Codes
+### Canonical Error Codes
 
-Define error codes as enum or constants:
+Reject with a small, consistent vocabulary of code strings across web, iOS,
+and Android so consumers can write unified error handling. Add new codes
+only when callers genuinely need to branch on the cause; do not invent a
+one-off code per call site.
+
+| Code                | When to use                                                                  |
+| ---                 | ---                                                                          |
+| `UNAVAILABLE`       | The feature is not supported on this platform/device/session.                |
+| `PERMISSION_DENIED` | The user denied a runtime permission (or it was permanently denied).         |
+| `INVALID_PARAMETER` | Arguments fail validation: missing, wrong type, or out of range.             |
+| `OPERATION_FAILED`  | The native operation failed for a reason not covered above.                  |
+
+Subtype `OPERATION_FAILED` only when callers need to branch on cause:
+`NETWORK_ERROR`, `HARDWARE_ERROR`, `TIMEOUT`, `CANCELLED`. Keep the surface
+small.
+
+### Cross-Platform Reject Signatures
+
+Native reject signatures take the message first and the code second:
+
+```swift
+// iOS
+call.reject("Camera permission not granted", "PERMISSION_DENIED")
+```
+
+```java
+// Android
+call.reject("Camera permission not granted", "PERMISSION_DENIED");
+```
 
 ```typescript
-export enum PluginErrorCode {
-  // Feature not available
-  UNAVAILABLE = 'UNAVAILABLE',
-
-  // Permission issues
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
-  PERMISSION_NOT_REQUESTED = 'PERMISSION_NOT_REQUESTED',
-
-  // Parameter validation
-  INVALID_PARAMETER = 'INVALID_PARAMETER',
-  MISSING_PARAMETER = 'MISSING_PARAMETER',
-
-  // Operation failures
-  OPERATION_FAILED = 'OPERATION_FAILED',
-  TIMEOUT = 'TIMEOUT',
-  CANCELLED = 'CANCELLED',
-
-  // Network issues
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  NO_CONNECTION = 'NO_CONNECTION',
-}
+// Web — attach a `code` property so consumers see the same wire shape.
+const error = new Error('Camera permission not granted');
+(error as Error & { code: string }).code = 'PERMISSION_DENIED';
+throw error;
 ```
 
 ### Error Objects
 
 ```typescript
 interface PluginError extends Error {
-  code: PluginErrorCode;
+  code: string;
   message: string;
   details?: any;  // Platform-specific details
 }
@@ -287,31 +364,44 @@ interface PluginError extends Error {
 try {
   await Camera.getPhoto();
 } catch (error) {
-  if (error.code === 'PERMISSION_DENIED') {
+  if ((error as PluginError).code === 'PERMISSION_DENIED') {
     // Show permission rationale
-  } else if (error.code === 'UNAVAILABLE') {
+  } else if ((error as PluginError).code === 'UNAVAILABLE') {
     // Feature not supported
   }
 }
 ```
 
+Centralize the codes natively — see `references/ios-implementation.md`
+"Plugin Errors as a Swift Enum" and `references/android-implementation.md`
+"Plugin Errors as Constants" so the codes do not drift across methods.
+
 ### When to Throw vs Return
 
+Reject (throw) for **exceptional failures** the caller cannot recover from
+in the normal flow. Return a status object for **expected conditions** the
+caller should branch on:
+
 ```typescript
-// ✅ Throw for exceptional failures
+// ✅ Throw for invalid input — exceptional, caller has a bug
 async getPhoto(options: PhotoOptions): Promise<Photo> {
-  if (!options.quality || options.quality < 0 || options.quality > 100) {
-    throw new Error('INVALID_PARAMETER: quality must be 0-100');
+  if (options.quality < 0 || options.quality > 100) {
+    const err = new Error('quality must be 0-100');
+    (err as Error & { code: string }).code = 'INVALID_PARAMETER';
+    throw err;
   }
   // ...
 }
 
-// ✅ Return status for expected conditions
+// ✅ Return status for expected conditions — denied is a normal outcome
 async checkPermissions(): Promise<PermissionStatus> {
-  // Don't throw if permission denied - it's expected
   return { camera: 'denied' };
 }
 ```
+
+The litmus test: if every well-written caller has to wrap the call in
+`try/catch` to handle a routine outcome, the API should return a status
+instead. If only buggy callers will see the failure, throw.
 
 ---
 
@@ -332,7 +422,7 @@ interface MyPlugin {
   addListener(
     eventName: 'dataChange',
     listenerFunc: (data: DataType) => void,
-  ): Promise<PluginListenerHandle> & PluginListenerHandle;
+  ): Promise<PluginListenerHandle>;
 
   /**
    * Remove specific listener
@@ -350,6 +440,10 @@ interface MyPlugin {
   stopMonitoring(): Promise<void>;
 }
 ```
+
+Event names must be identical strings across TypeScript / web / iOS /
+Android — see `references/architecture-patterns.md` "Event Parity" and
+"Event Dispatch Locality" for the cross-platform rules.
 
 ### Event Naming
 
@@ -399,7 +493,7 @@ const handle = await Sensor.addListener('accelerometer', (data) => {
 
 ```typescript
 export interface PermissionStatus {
-  [key: string]: 'granted' | 'denied' | 'prompt';
+  [key: string]: 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale';
 }
 
 interface MyPlugin {
@@ -414,6 +508,11 @@ interface MyPlugin {
   requestPermissions(): Promise<PermissionStatus>;
 }
 ```
+
+Standardize permission state strings on `granted` / `denied` / `prompt` /
+`prompt-with-rationale`. Import `PermissionState` from `@capacitor/core`
+unless the plugin needs custom states (e.g., iOS limited photo library
+adds `'limited'`).
 
 ### Example: Camera Plugin
 
@@ -439,6 +538,10 @@ if (status.camera !== 'granted') {
   }
 }
 ```
+
+For deep-dive on multi-permission handling, location-delegate pattern, and
+the consumer-side flow patterns (Check Before Use / Just-In-Time / Deferred),
+see `references/permission-patterns.md`.
 
 ---
 
@@ -469,19 +572,24 @@ if (!available) {
 
 ### Platform-Specific Options
 
+When iOS and Android need substantively different inputs for the same
+logical operation, surface the divergence with namespaced sub-objects
+rather than flattening platform-specific keys into the top level:
+
 ```typescript
 interface NotificationOptions {
+  /** Common across platforms. */
   title: string;
   body: string;
 
-  // iOS-specific
+  /** iOS-only fields. */
   ios?: {
     sound?: string;
     badge?: number;
     threadId?: string;
   };
 
-  // Android-specific
+  /** Android-only fields. */
   android?: {
     channelId: string;
     priority?: 'high' | 'low';
@@ -490,11 +598,84 @@ interface NotificationOptions {
 }
 ```
 
+Document which keys are platform-specific in JSDoc. Platform-specific
+options should be optional from the contract's perspective; the native
+side falls back to sensible defaults if the consumer omits them.
+
+---
+
+## When Mirroring an Existing API
+
+If the requested plugin mirrors an existing public API — a Capacitor
+core/community plugin, a Capawesome plugin, an internal library, or a
+documented JavaScript API the user is replacing — look up the actual
+source `definitions.ts` (or equivalent) before generating. Match the
+wire-format string literal values exactly. Do not derive them from
+human-friendly names or TypeScript enum key names.
+
+A common failure mode: a known API exposes a TypeScript enum like
+`enum Style { Heavy = 'HEAVY', Medium = 'MEDIUM', Light = 'LIGHT' }`. If
+the contract is generated from the human description ("style options
+Heavy, Medium, Light") instead of the source, the generator may produce
+`'Heavy' | 'Medium' | 'Light'` as the union — which is not the wire
+format and will not interoperate with apps already using the official
+plugin.
+
+The structured YAML mode pins these values in `api.types[].values` so the
+generator does not need to guess. Conversational mode must consult the
+source when a target API exists; otherwise, document the chosen wire
+format explicitly so reviewers can see what was decided.
+
+### Native Dependency Detection
+
+Mirroring an existing API means matching its architecture too. Before
+generating native code, inspect the official plugin's dependency
+declarations:
+
+- **iOS** — read the `.podspec` for `s.dependency '<Library>'` and
+  `Package.swift` for `dependencies: [.package(url: ...)]`.
+- **Android** — read `android/build.gradle` for
+  `implementation '<group>:<artifact>:...'` entries (excluding
+  `:capacitor-android` itself).
+
+If the official plugin depends on a native library that wraps the
+underlying platform API, the candidate plugin **must declare the same
+dependency and delegate to it** — do not reimplement from scratch. The
+skill's job is wire-compatibility *and* architectural compatibility;
+reimplementing under the same TypeScript surface produces a divergent
+fork that loses upstream bug fixes, behavior parity, and platform-quirk
+handling.
+
+When the SDK is wrapped, the bridge class becomes a thin adapter — see
+`references/ios-implementation.md` and `references/android-implementation.md`
+for the SDK adapter pattern.
+
+When the official plugin's bridge code is available locally, **read its
+actual SDK call sites and mirror them**. The official plugin is the
+canonical example of how to call this SDK from a Capacitor bridge; do not
+invent alternative API surfaces based on the SDK's name alone (e.g.,
+inferring class names like `XCameraLib.takePhoto(request:completion:)`
+from the package title). Match the official's import statements, type
+names, delegate conformances, and method signatures exactly.
+
+If the official source is not reachable and the SDK headers cannot be
+read, the candidate must still compile. Generate a local
+protocol/interface stub named `<SDKName>Bridge` with the operations the
+plugin needs, and inject a placeholder implementation that rejects with
+`unimplemented()`. Mark every call site with a `TODO(SDK): wire up
+<method> via <real SDK class>` comment so a human reviewer can complete
+the integration. Never import speculative type names that the agent has
+not verified exist.
+
 ---
 
 ## Versioning and Deprecation
 
 ### Deprecating Methods
+
+Annotate evolution explicitly. Every public symbol already needs `@since`;
+methods, types, or properties scheduled for removal also need
+`@deprecated`.
 
 ```typescript
 interface MyPlugin {
@@ -512,6 +693,17 @@ interface MyPlugin {
 }
 ```
 
+A deprecated method must still work — keep it forwarding to its
+replacement and log once at runtime so consumers see the migration
+notice in development:
+
+```typescript
+async getData(): Promise<OldData> {
+  console.warn('[ExamplePlugin] getData is deprecated; use getDataV2');
+  return this.getDataV2() as unknown as OldData;
+}
+```
+
 ### Version-Specific Features
 
 ```typescript
@@ -524,6 +716,13 @@ interface MyPlugin {
   advancedFeature(): Promise<void>;
 }
 ```
+
+`@requires` documents minimum platform/OS versions. Pair with a runtime
+guard (`unavailable()` on the native side) so calls on older OS versions
+reject cleanly rather than crash at the API boundary.
+
+Bump the npm `version` field per semver: MAJOR removes deprecated APIs,
+MINOR adds new ones, PATCH fixes bugs without contract changes.
 
 ---
 
@@ -557,6 +756,10 @@ interface MyPlugin {
   getPhoto(options: PhotoOptions): Promise<Photo>;
 }
 ```
+
+`@since` is mandatory on every public symbol — `npm run docgen` reads it
+and emits a generated API table into the README between the `docgen`
+markers.
 
 ### Interface Documentation
 
@@ -596,18 +799,19 @@ export interface PhotoOptions {
 
 When designing a new plugin API:
 
-- [ ] **Methods return Promises** for async operations
-- [ ] **All data types have explicit interfaces**
-- [ ] **Method names are semantic and action-oriented**
-- [ ] **Parameters use options objects** (for methods with 2+ params)
-- [ ] **Optional parameters have documented defaults**
-- [ ] **Error codes are consistent and well-defined**
-- [ ] **Events have descriptive names**
-- [ ] **Permission methods follow standard pattern** (check/request)
-- [ ] **Platform differences are documented**
-- [ ] **All public APIs have JSDoc comments**
-- [ ] **Examples provided for complex methods**
-- [ ] **Return types are wrapped in objects** (for future extensibility)
+- [ ] **Methods return Promises** for async operations (`Promise<T>` or `Promise<void>`).
+- [ ] **All data types have explicit interfaces**, named `<MethodName>Options` and `<MethodName>Result`.
+- [ ] **Method names are semantic and action-oriented** — pick a verb from the naming table.
+- [ ] **Parameters use options objects** (for methods with 2+ params, or where named fields aid readability).
+- [ ] **Optional parameters have documented `@default` values**.
+- [ ] **Error codes drawn from the canonical taxonomy** (`UNAVAILABLE`, `PERMISSION_DENIED`, `INVALID_PARAMETER`, `OPERATION_FAILED`).
+- [ ] **Events have descriptive names** and identical strings across TS / web / iOS / Android.
+- [ ] **Permission methods follow the standard pattern** (`checkPermissions()` / `requestPermissions()`) with typed `PermissionStatus`.
+- [ ] **Platform differences are documented** in JSDoc; surfaced through `ios?` / `android?` namespaces when options diverge.
+- [ ] **All public APIs have JSDoc comments** with `@since`.
+- [ ] **Examples provided** for complex methods (via `@example`).
+- [ ] **Return types are wrapped in objects** (no bare `Promise<boolean>` or `Promise<T[]>`) for future extensibility.
+- [ ] **Native SDK dependencies declared** in `Package.swift` / podspec / `build.gradle` if mirroring an existing plugin that wraps an SDK.
 
 ---
 
@@ -615,19 +819,29 @@ When designing a new plugin API:
 
 ### Pattern: Resource Management
 
+For plugins that manage long-lived native resources (file handles, BLE
+connections, audio sessions, database transactions), expose them through
+a handle that the caller passes back on each operation. This avoids
+hiding state inside the plugin and makes lifecycles explicit:
+
 ```typescript
 interface ResourcePlugin {
-  // Open resource
+  /** Open a resource and return an opaque handle. */
   open(options: { id: string }): Promise<{ handle: string }>;
 
-  // Use resource
+  /** Operate on the resource. */
   read(options: { handle: string }): Promise<{ data: string }>;
   write(options: { handle: string; data: string }): Promise<void>;
 
-  // Close resource
+  /** Always require the caller to close. */
   close(options: { handle: string }): Promise<void>;
 }
 ```
+
+The native side keeps a `handle -> resource` map and rejects with
+`OPERATION_FAILED` when an unknown handle is passed. Document that
+consumers must `close()` to avoid leaks; for resources that must survive
+plugin unload, document the recovery semantics explicitly.
 
 ### Pattern: Batch Operations
 
@@ -641,20 +855,20 @@ interface BatchPlugin {
 }
 ```
 
+Each call across the JavaScript ↔ native bridge has serialization and
+context-switch overhead. Expose a batch method when the caller is likely
+to invoke the same operation many times in succession — see
+`references/architecture-patterns.md` "Performance Considerations" for
+the underlying rationale.
+
 ### Pattern: Configuration
 
-```typescript
-interface ConfigurablePlugin {
-  // Get current configuration
-  getConfig(): Promise<PluginConfig>;
-
-  // Update configuration
-  setConfig(config: Partial<PluginConfig>): Promise<void>;
-
-  // Reset to defaults
-  resetConfig(): Promise<void>;
-}
-```
+For runtime-configurable values that app developers set in their
+Capacitor config rather than passing per-call, see
+`references/configuration.md` "Runtime Plugin Configuration". The runtime
+config interface lives alongside the plugin interface in
+`src/definitions.ts` (or a sibling `src/config.ts`) and augments
+`@capacitor/cli`'s `PluginsConfig` type.
 
 ---
 
@@ -691,7 +905,7 @@ async isCameraAvailable(): Promise<{ available: boolean }>
 ### ❌ Stringly-Typed APIs
 
 ```typescript
-// Don't do this
+// Don't do this — collapses every operation into one method, defeats type checking.
 async doAction(action: string, data: any): Promise<any>
 
 // Use specific methods and types
@@ -711,16 +925,77 @@ console.log(options.quality);  // Changed to 100?
 // Keep options immutable
 ```
 
+The options object passed across the bridge belongs to the caller.
+Native code receives a JSON copy anyway, so any "mutation" only affects
+a local clone — surface that clearly by treating options as read-only
+inputs and returning new result objects.
+
+### ❌ Boolean Parameters That Change Behavior
+
+```typescript
+// Avoid: caller has to remember what `true` means at every call site.
+loadFile(path: string, sync: boolean): Promise<string>;
+
+// Prefer named modes or distinct methods.
+loadFile(options: { path: string; mode: 'sync' | 'async' }): Promise<string>;
+```
+
+These shapes show up most often when a contract is generated from a
+verbal description that did not break operations into typed shapes. When
+in doubt, err toward more specific methods with `<MethodName>Options` /
+`<MethodName>Result` interfaces.
+
+---
+
+## Registration
+
+`src/index.ts` should register the plugin and lazily load the web
+implementation:
+
+```typescript
+import { registerPlugin } from '@capacitor/core';
+
+import type { ExamplePlugin } from './definitions';
+
+const Example = registerPlugin<ExamplePlugin>('Example', {
+  web: () => import('./web').then((m) => new m.ExampleWeb()),
+});
+
+export * from './definitions';
+export { Example };
+```
+
+The first argument to `registerPlugin()` is the **JavaScript plugin name**.
+This must match the `jsName` property in the iOS `CAPBridgedPlugin`
+conformance and the `name` property in the Android `@CapacitorPlugin`
+annotation. See `references/scaffolding.md` "Name Parity" for details.
+
+---
+
+## Method Signature Mapping
+
+| API behavior              | TypeScript                                       | iOS return type            | Android annotation                                          |
+| ---                       | ---                                              | ---                        | ---                                                         |
+| Returns a value           | `Promise<Result>`                                | `CAPPluginReturnPromise`   | `@PluginMethod()`                                           |
+| Returns no value          | `Promise<void>`                                  | `CAPPluginReturnNone`      | `@PluginMethod(returnType = PluginMethod.RETURN_NONE)`     |
+| Native callback / watch   | `Promise<CallbackID>` with a callback parameter  | `CAPPluginReturnCallback`  | `@PluginMethod(returnType = PluginMethod.RETURN_CALLBACK)` |
+
+Use callback return types only for native streams or watchers that save
+and reuse a `PluginCall`. Events should usually be modeled with
+`addListener()` and `notifyListeners()`.
+
 ---
 
 ## Summary
 
 **Good API Design**:
-- Clear, predictable method names
-- Strong typing with explicit interfaces
-- Consistent error handling
-- Well-documented with examples
-- Extensible for future needs
-- Platform differences handled gracefully
+- Clear, predictable method names from the naming verb table
+- Strong typing with explicit `<MethodName>Options` and `<MethodName>Result` interfaces
+- Consistent error handling using the canonical 4-code taxonomy
+- Well-documented with JSDoc + `@since` and `@example`
+- Extensible through return-shape wrapping
+- Platform differences handled gracefully via `ios?` / `android?` namespaces
+- Mirrors existing public APIs faithfully — wire format and native dependencies
 
-**Remember**: The API is the user's first impression of your plugin. Make it intuitive!
+**Remember**: The API is the user's first impression of your plugin. Make
+it intuitive!
