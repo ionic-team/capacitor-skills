@@ -775,3 +775,123 @@ npx cap sync
 - [ ] Verify all platforms build successfully
 
 **Remember**: Use Swift Package Manager for iOS! Proper configuration ensures smooth development and easy integration for users!
+
+---
+
+## Runtime Plugin Configuration
+
+Beyond the build/package configuration above, plugins can expose **runtime
+configuration values** that app developers set in their Capacitor config
+file (`capacitor.config.ts` or `capacitor.config.json`). These are read-only
+values available at plugin load time.
+
+### App Developer Configuration
+
+App developers configure plugin values under `plugins.<PluginJSName>` in their
+Capacitor config:
+
+```json
+{
+  "plugins": {
+    "Example": {
+      "style": "dark",
+      "maxRetries": 3,
+      "iconColor": "#FF0000"
+    }
+  }
+}
+```
+
+Or in TypeScript:
+
+```typescript
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  plugins: {
+    Example: {
+      style: 'dark',
+      maxRetries: 3,
+      iconColor: '#FF0000',
+    },
+  },
+};
+
+export default config;
+```
+
+### Type Definitions for Plugin Config
+
+Extend the `PluginsConfig` interface from `@capacitor/cli` so app developers
+get autocomplete and type checking:
+
+```typescript
+/// <reference types="@capacitor/cli" />
+
+declare module '@capacitor/cli' {
+  export interface PluginsConfig {
+    Example?: {
+      /**
+       * Enables verbose native logging.
+       *
+       * @default false
+       * @since 1.0.0
+       */
+      debug?: boolean;
+    };
+  }
+}
+```
+
+Add this declaration to `src/definitions.ts` or a separate `src/config.ts`
+file that is re-exported from `src/index.ts`.
+
+### Type Resolution
+
+Module augmentation only resolves at build time when the augmented module is
+actually installed. When the generated TypeScript declares
+`declare module '<name>'` or uses a `/// <reference types="<name>" />`
+triple-slash directive:
+
+- Add the augmented package to `devDependencies` in `package.json`. For
+  Capacitor plugin configuration types this is `@capacitor/cli`.
+- For triple-slash references, ensure the same package is reachable via
+  `tsconfig.json` `compilerOptions.types` or `typeRoots`. Most templates do
+  not need an explicit `types` array because TypeScript discovers
+  `node_modules/@types` automatically — the install is what matters.
+- TypeScript will fail with `Cannot find type definition file for '<name>'`
+  or `Invalid module name in augmentation, module '<name>' cannot be found`
+  when the augmented module is not installed at build time.
+
+This rule applies to any module augmentation, not just `@capacitor/cli`.
+
+### Reading Configuration Values
+
+iOS:
+
+```swift
+let style = getConfig().getString("style") ?? "light"
+let maxRetries = getConfig().getInt("maxRetries") ?? 3
+let iconColor = getConfig().getString("iconColor") ?? "#000000"
+```
+
+Android:
+
+```java
+String style = getConfig().getString("style", "light");
+int maxRetries = getConfig().getInt("maxRetries", 3);
+String iconColor = getConfig().getString("iconColor", "#000000");
+```
+
+### Rules
+
+- Configuration values are **optional**. Plugin consumers may not provide
+  any configuration. Always supply default values.
+- Configuration values are **not validated** by Capacitor. Plugin consumers
+  can pass invalid data. Handle gracefully.
+- Document all configuration options, their types, defaults, and valid
+  values in the plugin README.
+- Do not use config for per-call options; use method options interfaces
+  instead (per `api-design.md`).
+- Keep defaults identical across web, iOS, and Android.
+- If a config key affects only one platform, document platform availability.
