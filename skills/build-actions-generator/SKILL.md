@@ -190,6 +190,8 @@ field to any action entry using function-style expressions:
 | `lt(a, b)` | less than | `lt($TIMEOUT, 60)` |
 | `le(a, b)` | less than or equal | `le($LEVEL, 5)` |
 
+Arguments can be variable references (`$VAR_NAME`) or literal values:
+
 ```json
 {
   "file": "AndroidManifest.xml",
@@ -205,15 +207,17 @@ field to any action entry using function-style expressions:
 
 See **[reference/android-build-actions.md](reference/android-build-actions.md)** for full schemas and examples:
 
+- `appName` — Set the Android app name (string, supports variable substitution)
 - `manifest` — Modify `AndroidManifest.xml` (set attributes, merge or inject XML)
 - `gradle` — Patch Gradle build files (target paths, key replacements)
 - `xml` — Modify arbitrary XML resource files
-- `code` — Inject or replace native Android (Java/Kotlin) code snippets
+- `code` — Inject, replace, or patch native Android (Java/Kotlin) code snippets (`inject`, `replace`, or `patchFile`)
 
 Quick reference:
 
 ```json
 "android": {
+  "appName":  "$APP_NAME",
   "manifest": [ { "file": "AndroidManifest.xml", "target": "...", "merge": "..." } ],
   "gradle":   [ { "file": "app/build.gradle", "target": { ... }, "replace": { ... } } ],
   "xml":      [ { "file": "res/xml/...", "target": "...", "merge": "..." } ],
@@ -230,7 +234,7 @@ See **[reference/ios-build-actions.md](reference/ios-build-actions.md)** for ful
 - `plist` — Modify `Info.plist` (replace or merge entries)
 - `entitlements` — Add or modify entitlement keys
 - `displayName` — Override the app display name (string, supports variables)
-- `code` — Inject or replace native iOS (Swift/Objective-C) code snippets
+- `code` — Inject, replace, or patch native iOS (Swift/Objective-C) code snippets (`inject`, `replace`, or `patchFile`)
 
 Quick reference:
 
@@ -239,7 +243,7 @@ Quick reference:
   "displayName": "$APP_NAME",
   "plist":        [ { "replace": false, "entries": [ { "NSKey": "value" } ] } ],
   "entitlements": { "replace": false, "entries": [ { "aps-environment": "production" } ] },
-  "code":         [ { "file": "...", "target": "...", "inject": "..." } ]
+  "code":         [ { "file": "...", "condition": "...", "patchFile": "patches/..." } ]
 }
 ```
 
@@ -302,9 +306,24 @@ Ask the developer (or infer from context):
 After generating the JSON, remind the developer:
 
 > **Next steps (manual):**
-> 1. Add the JSON file to your ODC plugin/library in ODC Studio → Extensibility Configurations tab
-> 2. Reference it in the ODC Portal → Mobile Distribution tab
-> 3. Publish the plugin and verify a mobile build using MABS 12 (Capacitor) or later
+> 1. In ODC Studio, add the JSON file as a resource and set **Deploy Action** to **Deploy to Target Directory**.
+> 2. Under **App > Edit app properties > Extensibility**, add a `buildConfigurations` entry to reference the file and resolve its variables:
+>
+> ```json
+> {
+>     "version": "1",
+>     "buildConfigurations": {
+>         "buildAction": {
+>             "config": "$resources.buildAction.json",
+>             "parameters": {
+>                 "VAR_NAME": "value"
+>             }
+>         }
+>     }
+> }
+> ```
+>
+> 3. Build the app in the ODC Portal using MABS 12 or greater.
 
 > **Output quality:** The generated JSON is candidate-quality and requires
 > human review before being uploaded to ODC Studio.
