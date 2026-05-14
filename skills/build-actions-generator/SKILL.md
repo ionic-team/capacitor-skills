@@ -118,7 +118,8 @@ allow the same build action to behave differently across apps.
 ```json
 "variables": {
   "APP_NAME": {
-    "type": "string"
+    "type": "string",
+    "default": ""
   },
   "TIMEOUT": {
     "type": "number",
@@ -134,7 +135,7 @@ allow the same build action to behave differently across apps.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | string | yes | `"string"`, `"number"`, or `"boolean"` |
-| `default` | any | no | Value used when the developer does not set the variable |
+| `default` | any | no | Fallback value used when the developer does not set the variable. Recommended in most cases so the build action has sensible out-of-the-box behavior. Without a default, the developer must supply a value or the build will fail. |
 
 **Usage in values:** Reference variables with `$VAR_NAME` anywhere in string
 values inside the JSON.
@@ -203,7 +204,7 @@ Quick reference:
 "ios": {
   "displayName": "$APP_NAME",
   "plist":        [ { "replace": false, "entries": [ { "NSKey": "value" } ] } ],
-  "entitlements": [ { "replace": false, "entries": [ { "aps-environment": "production" } ] } ],
+  "entitlements": { "replace": false, "entries": [ { "aps-environment": "production" } ] },
   "code":         [ { "file": "...", "target": "...", "inject": "..." } ]
 }
 ```
@@ -239,6 +240,7 @@ Ask the developer (or infer from context):
 - Filename: camelCase, no spaces (e.g., `buildAction.json`)
 - Only include platforms that have actual actions
 - Use `$VAR_NAME` substitution for developer-controlled values
+- Include a `default` on variables unless the value is genuinely required from the developer — without one, the build fails if the developer doesn't supply the variable in ODC Studio
 - Add `condition` only when an action should be conditionally skipped
 - Prefer `merge` over `inject` in `manifest` to avoid duplicate entries
 - Output valid, well-formatted JSON

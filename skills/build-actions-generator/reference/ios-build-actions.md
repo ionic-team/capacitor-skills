@@ -89,18 +89,16 @@ through the Apple Developer portal (push notifications, app groups, etc.).
 
 ```json
 "ios": {
-  "entitlements": [
-    {
-      "replace": false,
-      "entries": [
-        { "aps-environment": "production" }
-      ]
-    }
-  ]
+  "entitlements": {
+    "replace": false,
+    "entries": [
+      { "aps-environment": "production" }
+    ]
+  }
 }
 ```
 
-### Entry fields
+### Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -110,7 +108,7 @@ through the Apple Developer portal (push notifications, app groups, etc.).
 **Enable push notifications:**
 
 ```json
-{
+"entitlements": {
   "replace": false,
   "entries": [
     { "aps-environment": "production" }
@@ -123,7 +121,7 @@ Use `"development"` for debug builds, `"production"` for release.
 **Add an app group:**
 
 ```json
-{
+"entitlements": {
   "replace": false,
   "entries": [
     { "com.apple.security.application-groups": ["group.com.example.app"] }
@@ -134,7 +132,7 @@ Use `"development"` for debug builds, `"production"` for release.
 **Enable keychain sharing:**
 
 ```json
-{
+"entitlements": {
   "replace": false,
   "entries": [
     { "keychain-access-groups": ["$(AppIdentifierPrefix)com.example.app"] }
