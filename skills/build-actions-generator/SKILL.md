@@ -5,14 +5,14 @@ description: >-
   configure Capacitor mobile plugin builds for Android and iOS. Produces
   correct JSON with platform-specific actions, input variables, and conditional
   logic. Use when a developer says "create a build action for my ODC plugin",
-  "generate a buildAction.json file", "configure AndroidManifest for ODC build",
-  "add a plist entry for iOS in ODC", "set up Gradle build actions for a
-  Capacitor plugin", "automate native build config for ODC mobile library",
-  "write build actions for MABS 12", or "scaffold ODC native build
-  configuration". Do not use for Cordova extensibility configurations, O11
-  platform extensibility JSON, installing plugins into apps, app-level
-  configuration outside the build phase, or uploading and registering the JSON
-  in ODC Studio.
+  "generate a buildAction.json file", "set up Gradle or plist build actions for
+  a Capacitor or Cordova plugin", "configure AndroidManifest for ODC build", or
+  "scaffold ODC native build configuration". If the target platform is
+  ambiguous, still generate and note that build actions only apply to ODC —
+  they have no effect in standalone Capacitor apps. Do not use when the
+  developer explicitly mentions Cordova apps, O11, Cordova extensibility
+  configurations, MABS versions prior to 12, or uploading and registering the
+  JSON in ODC Studio.
 metadata:
   author: ionic
   source: https://github.com/ionic-team/capacitor-skills
@@ -21,7 +21,7 @@ metadata:
 # ODC Build Actions Generator
 
 Generates a correct `buildAction.json` file for OutSystems Developer Cloud
-(ODC) mobile plugins and libraries. The JSON file drives the native mobile
+(ODC) Capacitor and Cordova plugins. The JSON file drives the native mobile
 build process for Capacitor-based apps targeting Android and iOS via MABS 12
 or later.
 
@@ -29,6 +29,7 @@ or later.
 
 - [When to Use](#when-to-use)
 - [What Are Build Actions](#what-are-build-actions)
+- [Invocation & Input Signals](#invocation--input-signals)
 - [End-to-End Process](#end-to-end-process)
 - [JSON File Structure](#json-file-structure)
 - [Variables & Conditions](#variables--conditions)
@@ -44,16 +45,18 @@ or later.
 ✅ **Use this skill when:**
 
 - Generating a `buildAction.json` file for an ODC Capacitor plugin or mobile library.
+- Generating build actions for a Cordova plugin being adapted for ODC (Capacitor-based) deployment.
 - Configuring `AndroidManifest.xml`, Gradle files, or XML resources for Android.
 - Configuring `Info.plist`, entitlements, or display name for iOS.
 - Defining input variables (string, number, boolean) and conditional logic.
 - Scaffolding build actions for both platforms from a plugin's native requirements.
+- Invoked with a plugin path argument or from within a Capacitor or Cordova plugin directory.
 
 ❌ **Do NOT use this skill for:**
 
 - Uploading or referencing the JSON in ODC Studio/Portal (Steps 2–3 — see manual guidance).
 - Cordova extensibility configurations or O11 extensibility JSON.
-- Non-Capacitor mobile plugin setups (MABS < 12).
+- Cordova app builds, O11 builds, or MABS versions prior to 12 — build actions only apply to Capacitor apps on ODC (MABS 12+).
 - App-level build configuration that lives outside the build action JSON.
 - Publishing or testing the plugin (Step 4 — developer responsibility).
 
@@ -74,6 +77,34 @@ plugins and libraries to automatically:
 A single JSON file covers **both platforms**. At least one of `android` or
 `ios` must be present under `platforms`.
 
+Build actions are an **ODC-specific mechanism** — they have no effect in
+standalone Capacitor apps outside of ODC.
+
+This skill is a **primitive** designed to compose downstream of
+`capacitor-plugin-generator` and `cordova-plugin-converter`, so generated or
+converted plugins ship with their build configuration already in place.
+
+---
+
+## Invocation & Input Signals
+
+The skill accepts a Capacitor or Cordova plugin as input and writes output to
+a `.build-actions/` folder at the plugin root.
+
+**Invocation modes:**
+
+- **Path argument** — given a plugin path, writes to `<path>/.build-actions/`
+- **Current directory** — when invoked inside a plugin directory, writes to `./.build-actions/`
+
+**Input signal priority:**
+
+1. **`input-contract.yaml` (preferred)** — If present at the plugin root, read
+   its `hooks` section to derive which build actions are required.
+2. **Plugin source scanning (fallback)** — When the contract is absent or
+   partial, scan the plugin source for native requirement signals:
+   - Cordova plugins: parse `plugin.xml` for `<config-file>`, `<hook>`, and permission elements
+   - Capacitor plugins: inspect native source files for declared permissions, capabilities, and dependencies
+
 ---
 
 ## End-to-End Process
@@ -90,6 +121,9 @@ This skill handles **Step 1 only**. Steps 2–4 require manual action.
 ---
 
 ## JSON File Structure
+
+**Output location:** Files are written to the `.build-actions/` folder at the
+plugin root (e.g., `.build-actions/buildAction.json`).
 
 ```json
 {
@@ -213,7 +247,21 @@ Quick reference:
 
 ## Generation Guidelines
 
-### 1. Gather requirements
+### 1. Read plugin input signals
+
+Before asking the developer any questions, check for existing signals in the
+plugin:
+
+- If `input-contract.yaml` exists at the plugin root, read its `hooks` section
+  to derive which build actions are required.
+- If the contract is absent or partial, scan the plugin source:
+  - **Cordova plugins:** parse `plugin.xml` for `<config-file>`, `<hook>`, and
+    permission declaration elements.
+  - **Capacitor plugins:** inspect native source files (Java/Kotlin and
+    Swift/Objective-C) for declared permissions, capabilities, and third-party
+    dependencies.
+
+### 2. Gather requirements
 
 Ask the developer (or infer from context):
 
@@ -222,7 +270,7 @@ Ask the developer (or infer from context):
 - Are there runtime configuration values the developer should control? (→ variables)
 - Are any actions conditional on those values?
 
-### 2. Map requirements to actions
+### 3. Map requirements to actions
 
 | Native requirement | Android action | iOS action |
 |--------------------|----------------|------------|
@@ -235,7 +283,7 @@ Ask the developer (or infer from context):
 | Custom display name | — | `displayName` |
 | Custom native code | `code` inject/replace | `code` inject/replace |
 
-### 3. Generate the JSON
+### 4. Generate the JSON
 
 - Filename: camelCase, no spaces (e.g., `buildAction.json`)
 - Only include platforms that have actual actions
@@ -244,8 +292,12 @@ Ask the developer (or infer from context):
 - Add `condition` only when an action should be conditionally skipped
 - Prefer `merge` over `inject` in `manifest` to avoid duplicate entries
 - Output valid, well-formatted JSON
+- The `code` action has **platform-specific file path conventions** — iOS targets
+  Swift/Objective-C files (e.g., `App/AppDelegate.swift`); Android targets
+  Java/Kotlin files (e.g., `app/src/main/java/com/example/App.java`). Do not
+  mix conventions between platforms.
 
-### 4. Always summarize the manual steps
+### 5. Always summarize the manual steps
 
 After generating the JSON, remind the developer:
 
@@ -253,6 +305,15 @@ After generating the JSON, remind the developer:
 > 1. Add the JSON file to your ODC plugin/library in ODC Studio → Extensibility Configurations tab
 > 2. Reference it in the ODC Portal → Mobile Distribution tab
 > 3. Publish the plugin and verify a mobile build using MABS 12 (Capacitor) or later
+
+> **Output quality:** The generated JSON is candidate-quality and requires
+> human review before being uploaded to ODC Studio.
+
+> **ODC only:** If the developer did not explicitly mention ODC as the target
+> platform, include a note that build actions only take effect in ODC builds —
+> they have no effect in standalone Capacitor apps outside of ODC. This also
+> applies when input signals come from a `input-contract.yaml` with Cordova
+> hooks, whether user-provided or generated by another skill.
 
 ---
 
