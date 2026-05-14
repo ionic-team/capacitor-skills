@@ -256,18 +256,21 @@ After generating the JSON, remind the developer:
 
 ## Complete Example
 
-An auth/identity plugin build action with variables, a condition, Android
-manifest and Gradle changes, and iOS display name and plist:
+A realistic Microsoft Azure AD / MSAL authentication plugin. Both platforms
+register the OAuth redirect scheme, declare authenticator app visibility,
+request biometric permissions, and share a keychain token cache.
+
+Both variables are mandatory — there is no sensible default for a per-app
+client ID or URL scheme, so the developer must supply them in ODC Studio.
 
 ```json
 {
   "variables": {
-    "APP_NAME": {
+    "CLIENT_ID": {
       "type": "string"
     },
-    "EXAMPLE_NUMBER": {
-      "default": -1,
-      "type": "number"
+    "APP_SCHEME": {
+      "type": "string"
     }
   },
   "platforms": {
@@ -275,41 +278,33 @@ manifest and Gradle changes, and iOS display name and plist:
       "manifest": [
         {
           "file": "AndroidManifest.xml",
-          "condition": "ge($EXAMPLE_NUMBER, 0)",
+          "target": "manifest",
+          "merge": "<queries>\n    <package android:name=\"com.azure.authenticator\" />\n    <package android:name=\"com.microsoft.intune\" />\n    <package android:name=\"com.microsoft.windowsintune.companyportal\" />\n</queries>\n"
+        },
+        {
+          "file": "AndroidManifest.xml",
           "target": "manifest/application",
-          "attrs": {
-            "android:name": "com.ionicframework.intune.$APP_NAME"
-          }
+          "merge": "<activity android:name=\"com.microsoft.identity.client.BrowserTabActivity\" android:exported=\"true\">\n    <intent-filter>\n        <action android:name=\"android.intent.action.VIEW\" />\n        <category android:name=\"android.intent.category.DEFAULT\" />\n        <category android:name=\"android.intent.category.BROWSABLE\" />\n        <data android:scheme=\"msauth\" android:host=\"$CLIENT_ID\" />\n    </intent-filter>\n</activity>\n"
         },
         {
           "file": "AndroidManifest.xml",
           "target": "manifest",
-          "merge": "<queries>\n    <package android:name=\"com.azure.authenticator\" />\n</queries>\n"
-        },
-        {
-          "file": "AndroidManifest.xml",
-          "target": "manifest",
-          "inject": "<sample-tag>\n    <package android:name=\"com.azure.authenticator\" />\n</sample-tag>\n"
+          "merge": "<uses-permission android:name=\"android.permission.USE_BIOMETRIC\" />\n<uses-permission android:name=\"android.permission.USE_FINGERPRINT\" />\n"
         }
       ],
       "gradle": [
         {
           "file": "app/build.gradle",
           "target": {
-            "android": {
-              "buildTypes": {
-                "implementation": null
-              }
-            }
+            "dependencies": null
           },
           "replace": {
-            "implementation": "'test-implementation'"
+            "implementation": "'com.microsoft.identity.client:msal:5.+'"
           }
         }
       ]
     },
     "ios": {
-      "displayName": "$APP_NAME $EXAMPLE_NUMBER",
       "plist": [
         {
           "replace": false,
@@ -318,14 +313,35 @@ manifest and Gradle changes, and iOS display name and plist:
               "CFBundleURLTypes": [
                 {
                   "CFBundleURLSchemes": [
-                    "AdditionalBundleURLScheme"
+                    "msauth.$CLIENT_ID",
+                    "$APP_SCHEME"
                   ]
                 }
               ]
+            },
+            {
+              "LSApplicationQueriesSchemes": [
+                "msauthv2",
+                "msauthv3"
+              ]
+            },
+            {
+              "NSFaceIDUsageDescription": "Allows authentication using Face ID."
             }
           ]
         }
-      ]
+      ],
+      "entitlements": {
+        "replace": false,
+        "entries": [
+          {
+            "keychain-access-groups": [
+              "$(AppIdentifierPrefix)com.microsoft.adalcache",
+              "$(AppIdentifierPrefix)com.microsoft.identity.universalstorage"
+            ]
+          }
+        ]
+      }
     }
   }
 }
