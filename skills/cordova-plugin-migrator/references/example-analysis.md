@@ -471,8 +471,9 @@ The human summary surfaced alongside the YAML stays short:
 > - Warnings: 2 (manifest + Info.plist documented)
 > - Mirrors `@capacitor/camera` wire format
 >
-> Pass the YAML below to `capacitor-plugin-generator`, or let me know if
-> you'd prefer in-place (Mode A) instead.
+> Approve to invoke `capacitor-plugin-generator` with this plan, or let
+> me know if you'd prefer in-place (Mode A) or want to adjust the YAML
+> first.
 
 ## Key Takeaways
 
