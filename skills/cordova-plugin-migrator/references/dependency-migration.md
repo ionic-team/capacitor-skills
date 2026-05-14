@@ -51,19 +51,6 @@ distinction must be explicit. Phrasing like *"add this to your app's
 above. For everything else, the plugin's own gradle file owns it and the
 consumer takes no action.
 
-### Forward reference: `build-actions-generator` (ODC only, future)
-
-For plugins targeting OutSystems Developer Cloud, the planned
-`build-actions-generator` skill will emit a `.build-actions/` config that
-encodes every consumer-side item above as declarative YAML applied
-automatically by the ODC build pipeline. When that skill is available,
-ODC-targeted migrations should rely on it for the consumer surface instead
-of asking app developers to hand-edit native projects.
-
-For npm-only plugins (the general Capacitor ecosystem), the manual steps
-documented in this file remain the canonical path. Build Actions is not
-generic — it is ODC platform plumbing.
-
 ---
 
 ## Identifying Dependencies in Cordova
@@ -585,10 +572,6 @@ You do **not** need to add the `implementation 'com.example:custom-sdk:1.0.0'`
 line to your app — the plugin's own gradle already declares it and Gradle
 will resolve it transitively once the repo is reachable.
 ```
-
-For ODC-targeted plugins, `build-actions-generator` (future) will emit a
-Build Actions config that adds the Maven URL automatically. Until then the
-consumer step above is manual.
 
 **Potential Issues:**
 - ❌ **Blocker**: Private repository requires authentication not available to end users

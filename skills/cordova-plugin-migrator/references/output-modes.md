@@ -36,17 +36,19 @@ written.
 
 ## Mode A — In-Place with `.cordova-archive/`
 
-Move the Cordova source into a hidden `.cordova-archive/` subdirectory of the
-original plugin directory, then scaffold the Capacitor plugin in the cleared
-root. The original directory keeps its name and its commit history.
+Scaffold the Capacitor plugin into a temporary directory, **then** relocate
+the generator output into the Cordova repo root and move the original
+Cordova source into a hidden `.cordova-archive/` subdirectory. The
+original directory keeps its name, npm package identity, and commit
+history.
 
 ```
-my-plugin/
-├── .cordova-archive/           # was the original layout
+my-plugin/                      # same dir, post-migration
+├── .cordova-archive/           # was the original layout — moved here last
 │   ├── plugin.xml
 │   ├── www/
 │   └── src/
-├── android/                    # new Capacitor plugin
+├── android/                    # new Capacitor plugin — relocated from temp
 ├── ios/
 ├── src/
 └── package.json
@@ -57,7 +59,8 @@ my-plugin/
 - The user explicitly asks for in-place migration.
 - The plugin directory is the only source of truth and is under version
   control.
-- The user wants `git log --follow` to keep tracking the directory.
+- The user wants `git log --follow` to keep tracking the directory and the
+  package's npm name to stay stable.
 
 **Pre-flight checks (refuse Mode A if any fail):**
 
@@ -65,21 +68,41 @@ my-plugin/
    directory.
 2. The plugin directory is writable.
 3. No directory named `.cordova-archive` already exists in the plugin root.
+4. No top-level file the generator will emit (`package.json`, `src/`,
+   `ios/`, `android/`, `Package.swift`, `<Name>.podspec`, etc.) would
+   collide with a top-level file in the Cordova repo other than
+   `package.json`. Collisions halt the chain.
 
-**Recommended `git mv` pattern:**
+**Phase 11 + 12 sequence for Mode A:**
 
-```bash
-cd my-plugin
-mkdir .cordova-archive
-git mv plugin.xml .cordova-archive/plugin.xml
-git mv www .cordova-archive/www
-git mv src .cordova-archive/src
-# Repeat for every top-level Cordova artifact.
-git commit -m "chore: archive Cordova source under .cordova-archive/"
-```
+1. Phase 11 invokes `capacitor-plugin-generator` against a fresh
+   temporary directory (e.g., `$(mktemp -d)/capacitor-<name>`).
+   *The Cordova repo is untouched during this step.*
+2. The generator produces a working Capacitor plugin in the temp dir
+   (its own scaffold + verify cycle).
+3. Phase 12 begins by moving every top-level Cordova artifact in the
+   original repo into `.cordova-archive/`:
+   ```bash
+   cd my-plugin
+   mkdir .cordova-archive
+   git mv plugin.xml www src .cordova-archive/
+   # Repeat for every top-level Cordova file/dir (hooks/, etc.)
+   ```
+4. Phase 12 then moves the generator's output from the temp dir into
+   the now-cleared root:
+   ```bash
+   rsync -a "$TEMP_DIR/" ./
+   ```
+   (or `cp -R` + `rm -rf "$TEMP_DIR"`). The `package.json` from the
+   generator replaces the Cordova one; the original is preserved under
+   `.cordova-archive/`.
+5. Phase 12 writes `MIGRATION.md` at the repo root and adds
+   `.cordova-archive/` to `.npmignore` (or omits it from the `files`
+   field in the new `package.json`).
+6. Commit everything in one logical step.
 
-After the move, run `capacitor-plugin-generator` against the now-cleared
-directory. Anything the generator writes goes into a clean root.
+If the generator run in step 2 fails, the Cordova repo is still
+untouched — retry without rollback.
 
 **Handoff hint to the generator:**
 

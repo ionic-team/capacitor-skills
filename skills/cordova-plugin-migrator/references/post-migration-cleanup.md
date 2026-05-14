@@ -108,16 +108,45 @@ Minimum updates:
 
 ## Mode A Cleanup (`.cordova-archive/`)
 
-If the user chose Mode A in Phase 1, the original Cordova source now lives
-under `.cordova-archive/`. Confirm:
+Mode A relocates the generator's output from a temp dir into the
+Cordova repo root and archives the original Cordova source under
+`.cordova-archive/`. The relocation happens here in Phase 12, not in
+Phase 11 — the generator runs against a temp dir so the Cordova repo
+stays untouched until the generator succeeds.
 
-1. `.cordova-archive/` is excluded from the published npm artifact. Either
-   add it to `.npmignore` or omit it from the `files` field in
-   `package.json`.
-2. `.cordova-archive/` is included in the git tree (not `.gitignore`d).
-   Reviewers need it for diff.
-3. The directory contains exactly the original Cordova layout — no scratch
-   notes, no stub Capacitor files.
+**Sequence:**
+
+1. The generator in Phase 11 wrote its output to a temp dir (e.g.,
+   `$(mktemp -d)/capacitor-<name>`). Confirm it passed
+   `npm run verify` to the extent the local toolchain allows.
+2. Move every top-level Cordova artifact in the original repo into a
+   new `.cordova-archive/` directory:
+   ```bash
+   cd my-plugin
+   mkdir .cordova-archive
+   git mv plugin.xml www src hooks .cordova-archive/
+   # Repeat for every top-level Cordova file/dir actually present.
+   ```
+   The original `package.json` also moves into `.cordova-archive/`.
+3. Copy the generator's output from the temp dir into the now-cleared
+   root:
+   ```bash
+   rsync -a "$TEMP_DIR/" ./
+   rm -rf "$TEMP_DIR"
+   ```
+4. Write `MIGRATION.md` at the repo root.
+5. Add `.cordova-archive/` to `.npmignore` (or omit from the new
+   `package.json` `files` field) so it does not ship to npm.
+6. Stage everything as one logical commit.
+
+**Confirm before finishing Mode A:**
+
+1. `.cordova-archive/` is excluded from the published npm artifact.
+2. `.cordova-archive/` is included in the git tree (not `.gitignore`d) so
+   reviewers can diff against the new Capacitor layout.
+3. `.cordova-archive/` contains exactly the original Cordova layout — no
+   scratch notes, no stub Capacitor files.
+4. The temp directory has been removed.
 
 Suggested `package.json` `files` field for Mode A:
 
@@ -135,6 +164,11 @@ Suggested `package.json` `files` field for Mode A:
 ```
 
 `.cordova-archive/` is intentionally absent from `files`.
+
+**If the relocation in step 2 or 3 hits a name conflict** (two
+top-level paths with the same name, e.g., both repos have a `src/`):
+halt and ask the user. Either resolve manually or fall back to Mode B
+and rerun Phase 11 against a sibling directory.
 
 ## Mode B Cleanup (Side-by-Side)
 
