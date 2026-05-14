@@ -422,7 +422,7 @@ interface MyPlugin {
   addListener(
     eventName: 'dataChange',
     listenerFunc: (data: DataType) => void,
-  ): Promise<PluginListenerHandle> & PluginListenerHandle;
+  ): Promise<PluginListenerHandle>;
 
   /**
    * Remove specific listener

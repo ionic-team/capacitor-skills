@@ -79,7 +79,7 @@ export interface SensorPluginPlugin {
   addListener(
     eventName: 'sensorData',
     listenerFunc: (event: SensorData) => void,
-  ): Promise<PluginListenerHandle> & PluginListenerHandle;
+  ): Promise<PluginListenerHandle>;
 
   /**
    * Listen for sensor errors
@@ -87,7 +87,7 @@ export interface SensorPluginPlugin {
   addListener(
     eventName: 'sensorError',
     listenerFunc: (error: SensorError) => void,
-  ): Promise<PluginListenerHandle> & PluginListenerHandle;
+  ): Promise<PluginListenerHandle>;
 
   /**
    * Remove all listeners
