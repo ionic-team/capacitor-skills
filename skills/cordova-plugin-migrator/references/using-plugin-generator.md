@@ -1,8 +1,11 @@
 # Using `capacitor-plugin-generator`
 
-This skill never generates a Capacitor plugin directly. Phase 11 hands a YAML
-plan to `capacitor-plugin-generator`, which runs its own playbook. This file
-covers how to build that YAML and how to phrase the handoff.
+Phase 11 invokes the `capacitor-plugin-generator` skill via the Skill
+tool, passing the structured YAML plan produced in Phase 9. The generator
+runs its own playbook (scaffold, TypeScript contract, web, iOS, Android,
+sample app, docgen, verify) and returns a candidate Capacitor plugin.
+This skill never re-implements what the generator does; it produces the
+YAML and orchestrates the call.
 
 ## The Contract Is Authoritative
 
@@ -128,29 +131,46 @@ migration:
 The generator skill's "Native Dependency Detection" rule then triggers an
 SDK-adapter pattern instead of a reimplementation.
 
-## Phase 11 Handoff Invocation
+## Phase 11 Invocation
 
-The actual handoff is short. Surface the YAML in a fenced block and one line
-that says, in effect, "run the generator skill on this YAML."
+After Phase 10 checkpoint approval, invoke the `capacitor-plugin-generator`
+skill via the Skill tool, passing the structured YAML as the input
+argument. The generator detects structured-mode input by the presence of
+`plugin`, `platforms`, and `api` at the YAML root, skips its own
+elicitation phases, and proceeds directly to scaffold + implementation.
 
-Example handoff message:
+### Standard invocation (Simple / Moderate complexity)
 
-> The migration plan is ready. Pass this YAML to `capacitor-plugin-generator`:
->
-> ```yaml
-> plugin: { ... }
-> platforms: [...]
-> api: { ... }
-> migration: { ... }
-> ```
->
-> Note: complexity is `moderate`, output mode is `side_by_side`, and 2
-> warnings are recorded. There are no blockers. The generator will run its
-> own Phases 1–10.
+For plugins assessed as `simple` or `moderate` (see
+`complexity-assessment.md`), invoke the generator **once** with the full
+YAML. The generator runs all of its phases end-to-end and returns the
+candidate plugin.
 
-Do not include `# TODO` placeholders, partial fields, or "the generator will
-figure this out" comments. If you would write those, you are not ready for
-Phase 11 — return to Phase 9.
+### Incremental invocation (Complex)
+
+For plugins assessed as `complex`, invoke the generator **incrementally**
+— one platform at a time — with user checkpoints between each call. The
+sequence:
+
+1. Invoke generator with `platforms: [web]` plus the TypeScript contract.
+   Wait for user inspection and approval.
+2. Invoke generator with `platforms: [ios]`. Wait for user inspection.
+3. Invoke generator with `platforms: [android]`. Wait for user inspection.
+4. Invoke generator with full `platforms: [web, ios, android]` for final
+   docgen and verify.
+
+This prevents context overflow on plugins with large native surfaces and
+lets the user reject any single platform without rolling back the others.
+
+### Pre-flight checks before invoking
+
+- `migration.blockers` must be empty.
+- `migration.hooks.tier_3` must be empty.
+- Phase 10 checkpoint was acknowledged by the user.
+- YAML passes contract validation against
+  `capacitor-plugin-generator/references/input-contract.md`.
+
+If any check fails, do not invoke. Surface the failure and stop.
 
 ## What the Generator Will Reject
 
