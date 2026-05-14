@@ -1,5 +1,5 @@
 ---
-name: cordova-capacitor-plugin-migration
+name: cordova-plugin-migrator
 description: >-
   Analyzes Cordova plugins for conversion to Capacitor. Examines plugin.xml,
   JavaScript bridge code, iOS (Objective-C/Swift), and Android (Java/Kotlin)
