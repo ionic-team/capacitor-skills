@@ -3,101 +3,74 @@
 All Android build action types supported in the ODC build actions JSON schema.
 These go under `platforms.android` in your `buildAction.json`.
 
+All actions except `appName` support an optional `condition` field for
+conditional execution — see the Variables & Conditions section in SKILL.md.
+
+<!-- Source: https://success.outsystems.com/documentation/outsystems_developer_cloud/building_apps/mobile_apps/configure_mobile_apps/build_actions/android_build_actions/ -->
+<!-- Last verified: 2026-05-14 -->
+
+---
+
+## appName
+
+Sets the Android app display name by updating the `label` attribute in
+`AndroidManifest.xml`, or the strings resource value when a resource reference
+is used in the manifest.
+
+**Type:** `string` | **Conditional:** No
+
+```json
+"android": {
+  "appName": "My App Name"
+}
+```
+
 ---
 
 ## manifest
 
-Modifies `AndroidManifest.xml`. Accepts an array of patch entries.
+Modifies `AndroidManifest.xml`. Accepts an array of patch entries, each
+requiring a `file` field. Exactly one operation per entry.
+
+| Operation | Required fields | Description |
+|-----------|----------------|-------------|
+| `attrs` | `target` | Set or replace attributes on the target element |
+| `merge` | `target` | Merge an XML string into the target (deduplication-safe) |
+| `inject` | `target` | Inject an XML string into the target (allows duplicates) |
+| `deleteAttributes` | `target` | Delete the listed attributes from the target element |
+| `delete` | — | Delete nodes matching an XPath expression (no `target` field) |
+
+`target` is an XPath-like path (e.g. `"manifest"`, `"manifest/application"`).
+`delete` uses a full XPath expression directly (e.g. `"//intent-filter"`).
 
 ```json
 "android": {
   "manifest": [
-    { "file": "AndroidManifest.xml", "target": "...", "attrs": { ... } },
-    { "file": "AndroidManifest.xml", "target": "...", "merge": "..." },
-    { "file": "AndroidManifest.xml", "target": "...", "inject": "..." }
+    {
+      "file": "AndroidManifest.xml",
+      "target": "manifest/application",
+      "attrs": { "android:name": "com.example.MyApplication" }
+    },
+    {
+      "file": "AndroidManifest.xml",
+      "target": "manifest",
+      "merge": "<uses-permission android:name=\"android.permission.CAMERA\" />\n"
+    },
+    {
+      "file": "AndroidManifest.xml",
+      "target": "manifest/application",
+      "inject": "<activity android:name=\"com.example.AuthActivity\" />\n"
+    },
+    {
+      "file": "AndroidManifest.xml",
+      "target": "manifest/application",
+      "deleteAttributes": ["android:name"]
+    },
+    {
+      "file": "AndroidManifest.xml",
+      "delete": "//intent-filter"
+    }
   ]
-}
-```
-
-### Entry fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | string | yes | Target file, typically `"AndroidManifest.xml"` |
-| `target` | string | yes | XPath-like path to the element, e.g. `"manifest"`, `"manifest/application"` |
-| `condition` | string | no | Skip this entry if the expression evaluates to false |
-| `attrs` | object | no* | Set or replace attributes on the target element |
-| `merge` | string | no* | Merge a raw XML string into the target (deduplication-safe) |
-| `inject` | string | no* | Inject a raw XML string into the target (allows duplicates) |
-
-*Exactly one of `attrs`, `merge`, or `inject` per entry.
-
-### attrs — set element attributes
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "target": "manifest/application",
-  "attrs": {
-    "android:name": "com.example.MyApplication",
-    "android:networkSecurityConfig": "@xml/network_security_config"
-  }
-}
-```
-
-### merge — insert XML block (deduplication-safe)
-
-Use `merge` when the same block must not appear twice.
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "target": "manifest",
-  "merge": "<uses-permission android:name=\"android.permission.CAMERA\" />\n"
-}
-```
-
-### inject — insert raw XML (allows duplicates)
-
-Use `inject` when the block may legitimately appear more than once.
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "target": "manifest/application",
-  "inject": "<activity android:name=\"com.example.AuthActivity\" />\n"
-}
-```
-
-### Common manifest patterns
-
-**Grant a runtime permission:**
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "target": "manifest",
-  "merge": "<uses-permission android:name=\"android.permission.RECORD_AUDIO\" />\n"
-}
-```
-
-**Add a URL scheme intent filter:**
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "target": "manifest/application/activity",
-  "merge": "<intent-filter>\n  <action android:name=\"android.intent.action.VIEW\" />\n  <category android:name=\"android.intent.category.DEFAULT\" />\n  <data android:scheme=\"myapp\" />\n</intent-filter>\n"
-}
-```
-
-**Declare a package query (Android 11+):**
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "target": "manifest",
-  "merge": "<queries>\n  <package android:name=\"com.google.android.gms\" />\n</queries>\n"
 }
 ```
 
@@ -107,55 +80,104 @@ Use `inject` when the block may legitimately appear more than once.
 
 Modifies Gradle build files. Accepts an array of patch entries.
 
+**`insert`** — inserts new Gradle content at the target location:
+- `insert` as a **string**: inserts verbatim Groovy/Gradle text
+- `insert` as an **array of objects**: each object is inserted as either a
+  method call (`method arg`, default) or a variable assignment (`var = value`)
+  controlled by `insertType: "method" | "variable"` (default: `"method"`)
+
+**`replace`** — replaces existing key-value pairs at the target location.
+
+**`target`** mirrors the Gradle DSL hierarchy as a nested object; use `null`
+as a block value (not a leaf). Set `target: null` to insert at the top level
+of the file.
+
 ```json
 "android": {
   "gradle": [
-    { ... }
+    {
+      "file": "build.gradle",
+      "target": { "buildscript": null },
+      "insert": [{ "classpath": "'org.javassist:javassist:3.27.0-GA'" }]
+    },
+    {
+      "file": "variables.gradle",
+      "target": { "ext": null },
+      "insertType": "variable",
+      "insert": [{ "firebaseMessagingVersion": "\"20.0.6\"" }]
+    },
+    {
+      "file": "app/build.gradle",
+      "target": null,
+      "insert": "apply plugin: 'com.example.plugin'\n"
+    },
+    {
+      "file": "app/build.gradle",
+      "target": { "android": { "buildTypes": { "release": null } } },
+      "replace": { "minifyEnabled": true }
+    }
   ]
 }
 ```
 
-### Entry fields
+---
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | string | yes | Gradle file path, e.g. `"app/build.gradle"` |
-| `target` | object | yes | Nested JSON path matching the Gradle DSL structure |
-| `replace` | object | yes | Key-value pairs to set at the target location |
-| `condition` | string | no | Skip this entry if the expression evaluates to false |
+## res
 
-The `target` object mirrors the Gradle DSL hierarchy. Use `null` as a value
-to indicate a block (not a leaf), and `replace` to provide actual values.
+Creates new resource files under the `res` folder of the Android project.
 
-**Add a Maven dependency:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `path` | yes | Subfolder under `res` (e.g. `"raw"`, `"drawable"`, `"values"`) |
+| `file` | yes | Output filename |
+| `text` | one of | Inline file content as a string (supports `$VAR_NAME` substitution) |
+| `source` | one of | Local path or URL to copy from |
 
 ```json
-{
-  "file": "app/build.gradle",
-  "target": {
-    "dependencies": null
-  },
-  "replace": {
-    "implementation": "'com.example.sdk:sdk:1.2.3'"
-  }
+"android": {
+  "res": [
+    {
+      "path": "raw",
+      "file": "auth_config.json",
+      "text": "{\n  \"client_id\": \"$CLIENT_ID\"\n}\n"
+    },
+    {
+      "path": "drawable",
+      "file": "icon.png",
+      "source": "../common/icon.png"
+    },
+    {
+      "path": "drawable",
+      "file": "remote-icon.png",
+      "source": "https://example.com/icon.png"
+    }
+  ]
 }
 ```
 
-**Set a build type property:**
+---
+
+## json
+
+Modifies the content of JSON files within the Android project.
+
+| Operation | Description |
+|-----------|-------------|
+| `set` | Overrides the specified element entirely |
+| `merge` | Deep-merges the provided values into the existing content |
 
 ```json
-{
-  "file": "app/build.gradle",
-  "target": {
-    "android": {
-      "buildTypes": {
-        "release": null
-      }
+"android": {
+  "json": [
+    {
+      "file": "google-services.json",
+      "set": { "project_info": { "project_id": "MY_ID" } }
+    },
+    {
+      "file": "google-services.json",
+      "merge": { "data": { "field": "MY_FIELD" } }
     }
-  },
-  "replace": {
-    "minifyEnabled": "true"
-  }
+  ]
 }
 ```
 
@@ -163,65 +185,119 @@ to indicate a block (not a leaf), and `replace` to provide actual values.
 
 ## xml
 
-Modifies arbitrary XML resource files (other than `AndroidManifest.xml`).
-Same structure as `manifest` entries — supports `attrs`, `merge`, and `inject`.
+Modifies arbitrary XML files within the Android project. Same operations as
+`manifest` plus `replace`. Use `file` for project-relative paths or `resFile`
+for paths relative to the `res` folder.
+
+| Operation | Required fields | Description |
+|-----------|----------------|-------------|
+| `attrs` | `target` | Set or replace attributes on the target element |
+| `merge` | `target` | Merge XML tree (matches on attributes, appends new children) |
+| `inject` | `target` | Inject XML inside the target |
+| `replace` | `target` | Replace the target node with the provided XML string |
+| `deleteAttributes` | `target` | Delete the listed attributes from the target element |
+| `delete` | — | Delete nodes matching an XPath expression (no `target` field) |
 
 ```json
 "android": {
   "xml": [
     {
-      "file": "res/xml/network_security_config.xml",
+      "file": "app/network_config.xml",
       "target": "network-security-config",
       "merge": "<domain-config cleartextTrafficPermitted=\"true\"><domain includeSubdomains=\"true\">example.com</domain></domain-config>\n"
+    },
+    {
+      "resFile": "values/strings.xml",
+      "target": "resources/string[@name=\"app_name\"]",
+      "replace": "<string name=\"app_name\">My App</string>\n"
     }
   ]
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | string | yes | Resource file path relative to the Android project |
-| `target` | string | yes | XPath-like element path |
-| `condition` | string | no | Conditional execution |
-| `attrs` / `merge` / `inject` | string/object | yes* | One of the three patch modes |
+---
+
+## copy
+
+Copies files, directories, or URLs into the Android project. All paths are
+relative to the Android project root.
+
+| Field | Description |
+|-------|-------------|
+| `src` | Source path (relative to project root) or URL |
+| `dest` | Destination path relative to the Android project root |
+
+```json
+"android": {
+  "copy": [
+    {
+      "src": "../firebase/google-services.json",
+      "dest": "app/google-services.json"
+    },
+    {
+      "src": "https://example.com/file.png",
+      "dest": "app/src/main/res/drawable/file.png"
+    }
+  ]
+}
+```
 
 ---
 
 ## code
 
-Injects or replaces native Android (Java/Kotlin) code at a marked location.
-Use for changes that cannot be expressed as XML or Gradle patches.
+Adds source files to the project or patches existing source files. Three
+variants — use exactly one per entry:
+
+| Variant | Fields | Description |
+|---------|--------|-------------|
+| Copy source file | `source` + `targetDir` | Copies a source file into the specified directory |
+| Replace in file | `file` + `target` + `replace` | Replaces the matched target string in the file |
+| Apply patch file | `file` + `patchFile` | Applies a `.patch` file to the specified source file |
+
+`target` in the replace variant is a string or regex pattern identifying the
+text to replace.
 
 ```json
 "android": {
   "code": [
     {
-      "file": "app/src/main/java/com/example/MyPlugin.java",
-      "target": "// BUILD_ACTION_INJECT_HERE",
-      "inject": "import com.example.sdk.SdkManager;\n"
+      "source": "files/MyClass.java",
+      "targetDir": "src/com/example"
+    },
+    {
+      "file": "MainActivity.java",
+      "target": "/import com.getcapacitor.BridgeActivity;/",
+      "replace": "import com.getcapacitor.BridgeActivity;\nimport com.example.MyFragment;\n"
+    },
+    {
+      "file": "MainActivity.java",
+      "patchFile": "patches/MainActivity.patch"
     }
   ]
 }
 ```
 
-### Entry fields
+---
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | string | yes | Source file path relative to the Android project |
-| `target` | string | yes | Marker string or pattern to locate the injection point |
-| `inject` | string | no* | Code string to insert at the target |
-| `replace` | string | no* | Code string to replace the target match |
-| `condition` | string | no | Skip this entry if the expression evaluates to false |
+## tar
 
-*One of `inject` or `replace` required.
+Applies tar operations on files within the Android project.
 
-**Replace an import block:**
+| Field | Description |
+|-------|-------------|
+| `source` | Path to the tar file |
+| `targetDir` | Target directory for the operation |
+| `action` | Tar command: `"c"` (create), `"r"` (append), `"u"` (update), `"x"` (extract) |
 
 ```json
-{
-  "file": "app/src/main/java/com/example/App.java",
-  "target": "import com.old.sdk.OldManager;",
-  "replace": "import com.new.sdk.NewManager;"
+"android": {
+  "tar": [
+    {
+      "source": "files/archive.tar",
+      "targetDir": "files/extracted",
+      "action": "x"
+    }
+  ]
 }
 ```
