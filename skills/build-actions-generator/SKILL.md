@@ -21,9 +21,9 @@ metadata:
 # ODC Build Actions Generator
 
 Generates a correct `buildAction.json` file for OutSystems Developer Cloud
-(ODC) Capacitor and Cordova plugins. The JSON file drives the native mobile
-build process for Capacitor-based apps targeting Android and iOS via MABS 12
-or later.
+(ODC) Mobile Libraries (Capacitor and Cordova plugins) and ODC apps. The JSON
+file drives the native mobile build process for Capacitor-based apps targeting
+Android and iOS via MABS 12 or later.
 
 ## Contents
 
@@ -44,7 +44,8 @@ or later.
 
 ✅ **Use this skill when:**
 
-- Generating a `buildAction.json` file for an ODC Capacitor plugin or mobile library.
+- Generating a `buildAction.json` file for an ODC Mobile Library (Capacitor or Cordova plugin).
+- Generating a `buildAction.json` file for an ODC app that requires native build configuration.
 - Generating build actions for a Cordova plugin being adapted for ODC (Capacitor-based) deployment.
 - Configuring `AndroidManifest.xml`, Gradle files, or XML resources for Android.
 - Configuring `Info.plist`, entitlements, or display name for iOS.
@@ -307,7 +308,9 @@ After generating the JSON, remind the developer:
 
 > **Next steps (manual):**
 > 1. In ODC Studio, add the JSON file as a resource and set **Deploy Action** to **Deploy to Target Directory**.
-> 2. Under **App > Edit app properties > Extensibility**, add a `buildConfigurations` entry to reference the file and resolve its variables:
+> 2. Configure extensibility to reference the file and resolve its variables. The path depends on the target:
+>    - **ODC app:** App > Edit app properties > Extensibility
+>    - **ODC Mobile Library (plugin):** Library > Edit library properties > Extensibility
 >
 > ```json
 > {
@@ -323,7 +326,9 @@ After generating the JSON, remind the developer:
 > }
 > ```
 >
-> 3. Build the app in the ODC Portal using MABS 12 or greater.
+> 3. Build in the ODC Portal using MABS 12 or greater:
+>    - **ODC app:** build the app directly.
+>    - **ODC Mobile Library (plugin):** consume the library in an ODC app, then build that app.
 
 > **Output quality:** The generated JSON is candidate-quality and requires
 > human review before being uploaded to ODC Studio.
