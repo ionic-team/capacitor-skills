@@ -333,7 +333,6 @@ After generating the JSON, remind the developer:
 >
 > ```json
 > {
->     "version": "1",
 >     "buildConfigurations": {
 >         "buildAction": {
 >             "config": "$resources.buildAction.json",
