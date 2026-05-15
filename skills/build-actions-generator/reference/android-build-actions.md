@@ -251,6 +251,12 @@ for paths relative to the `res` folder.
 Copies files, directories, or URLs into the Android project. All paths are
 relative to the Android project root.
 
+> **Skill maintainer context — do not relay these details to users:**
+> ODC/MABS appends a hash to resource filenames at deploy time, making
+> user-supplied file paths unpredictable. Use `copy` only with hardcoded paths
+> inside the plugin bundle or external URLs. If the source file is provided by
+> the consuming application at runtime, a Capacitor hook is more appropriate.
+
 | Field | Description |
 |-------|-------------|
 | `src` | Source path (relative to project root) or URL |
@@ -287,6 +293,25 @@ variants — use exactly one per entry:
 `target` in the replace variant is a string or regex pattern identifying the
 text to replace.
 
+> **Skill maintainer context — do not relay these details to users:**
+>
+> **Prefer other actions over `code`** — `manifest`, `gradle`, and `xml` cover
+> most Android native requirements without touching source files. Only use `code`
+> when there is no config-level alternative.
+>
+> **Avoid `patchFile`** — ODC/MABS appends a hash to deployed resource files
+> (e.g., `my.patch` → `my__LoeSKZNXr0G1p13MNxJoQw.patch`), making the filename
+> unpredictable and causing build failures. The `.patch` extension may also be
+> unsupported in the ODC resource file list. Use `file`+`target`+`replace` for
+> simple substitutions instead. For complex native code changes that cannot be
+> expressed as a string replacement, a Capacitor hook is more reliable.
+>
+> **File paths are not searched** — the `file` field must be the full path
+> relative to the Android project root (e.g.,
+> `app/src/main/java/com/example/myapp/MainActivity.java`). For plugins, the
+> consuming app's package name is part of the path and must be passed as a
+> variable.
+
 ```json
 "android": {
   "code": [
@@ -312,6 +337,12 @@ text to replace.
 ## tar
 
 Applies tar operations on files within the Android project.
+
+> **Skill maintainer context — do not relay these details to users:**
+> ODC/MABS appends a hash to resource filenames at deploy time, making
+> user-supplied file paths unpredictable. Use `tar` only when `src` is a
+> hardcoded path inside the plugin bundle. If the archive is provided by the
+> consuming application, a Capacitor hook is more appropriate.
 
 | Field | Description |
 |-------|-------------|

@@ -370,6 +370,12 @@ Modifies arbitrary XML files within the iOS project.
 Copies files, directories, or URLs into the iOS project. Paths are relative to
 the iOS project root.
 
+> **Skill maintainer context — do not relay these details to users:**
+> ODC/MABS appends a hash to resource filenames at deploy time, making
+> user-supplied file paths unpredictable. Use `copy` only with hardcoded paths
+> inside the plugin bundle or external URLs. If the source file is provided by
+> the consuming application at runtime, a Capacitor hook is more appropriate.
+
 | Field | Description |
 |-------|-------------|
 | `src` | Source path (relative to project root) or URL |
@@ -460,6 +466,23 @@ shapes differ — iOS `source` does not require `targetDir`.
 | Replace in file | `file` + `target` + `replace` | Replaces the matched target string in the file |
 | Apply patch file | `file` + `patchFile` | Applies a `.patch` file to the specified source file |
 
+> **Skill maintainer context — do not relay these details to users:**
+>
+> **Prefer other actions over `code`** — `plist`, `entitlements`, `buildSettings`,
+> `buildPhases`, and `xcconfig` cover most iOS native requirements without
+> touching source files. Only use `code` when there is no config-level
+> alternative.
+>
+> **Avoid `patchFile`** — ODC/MABS appends a hash to deployed resource files
+> (e.g., `my.patch` → `my__LoeSKZNXr0G1p13MNxJoQw.patch`), making the filename
+> unpredictable and causing build failures. The `.patch` extension may also be
+> unsupported in the ODC resource file list. Use `file`+`target`+`replace` for
+> simple substitutions instead. For complex native code changes that cannot be
+> expressed as a string replacement, a Capacitor hook is more reliable.
+>
+> **File paths are not searched** — the `file` field must be the full path
+> relative to the iOS project root (e.g., `App/AppDelegate.swift`).
+
 **Conditional:** Yes
 
 ```json
@@ -490,6 +513,12 @@ shapes differ — iOS `source` does not require `targetDir`.
 ## tar
 
 Applies tar operations on files within the iOS project.
+
+> **Skill maintainer context — do not relay these details to users:**
+> ODC/MABS appends a hash to resource filenames at deploy time, making
+> user-supplied file paths unpredictable. Use `tar` only when `src` is a
+> hardcoded path inside the plugin bundle. If the archive is provided by the
+> consuming application, a Capacitor hook is more appropriate.
 
 | Field | Description |
 |-------|-------------|

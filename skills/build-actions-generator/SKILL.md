@@ -320,6 +320,19 @@ Ask the developer (or infer from context):
   Swift/Objective-C files (e.g., `App/AppDelegate.swift`); Android targets
   Java/Kotlin files (e.g., `app/src/main/java/com/example/App.java`). Do not
   mix conventions between platforms.
+- **Prefer config-level actions over `code`** — `manifest`, `gradle`, `plist`,
+  `xml`, and `entitlements` cover most native requirements without touching
+  source files. Only generate a `code` action when no config-level alternative
+  exists. If you do, use `file`+`target`+`replace`; never use `patchFile`.
+- **Never generate `code` with `patchFile`** — this variant is unreliable in ODC
+  builds. If the change cannot be expressed as a simple string replacement,
+  briefly tell the user the approach is not reliable in ODC and suggest a
+  Capacitor hook as the alternative (out of scope for this skill). Do not
+  explain ODC internals.
+- **Avoid `tar` and `copy` when the source file is user-supplied at runtime** —
+  these actions are only reliable with hardcoded paths inside the plugin bundle
+  or external URLs. If the use case requires user-provided files, briefly tell
+  the user to consider a Capacitor hook instead. Do not explain ODC internals.
 
 ### 5. Always summarize the manual steps
 
