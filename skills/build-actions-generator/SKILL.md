@@ -287,6 +287,20 @@ Ask the developer (or infer from context):
   or external URLs. If the use case requires user-provided files, briefly tell
   the user to consider a Capacitor hook instead. Do not explain ODC internals.
 
+After writing the JSON file, validate its syntax before proceeding:
+
+1. Tell the user: *"Validating JSON syntax..."*
+2. Try `python3 -m json.tool build-actions/buildAction.json > /dev/null` — use
+   this if `python3` is available.
+3. If `python3` is not available, try `jq empty build-actions/buildAction.json`.
+4. If neither tool is available, self-inspect the file carefully: check for
+   balanced braces and brackets, no trailing commas, and correct escaping in
+   string values (pay special attention to XML content inside `manifest`/`plist`
+   entries where quotes must be escaped as `\"`).
+5. If an error is found (by tool or self-inspection), fix the file and repeat
+   from step 2 until the JSON is valid.
+6. Only proceed to step 5 (README) once validation passes.
+
 ### 5. Generate the README and wrap up
 
 Generate `build-actions/README.md` alongside the JSON. It serves as
