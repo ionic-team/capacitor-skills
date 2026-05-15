@@ -32,7 +32,7 @@ Android and iOS via MABS 12 or later.
 - [Invocation & Input Signals](#invocation--input-signals)
 - [End-to-End Process](#end-to-end-process)
 - [JSON File Structure](#json-file-structure)
-- [Variables & Conditions](#variables--conditions)
+- [Variables & Conditions](#variables--conditions) *(see reference/variables-and-conditions.md)*
 - [Android Actions](#android-actions)
 - [iOS Actions](#ios-actions)
 - [Generation Guidelines](#generation-guidelines)
@@ -149,60 +149,11 @@ At least one of `android` or `ios` must be present under `platforms`.
 
 ## Variables & Conditions
 
-Variables are optional inputs that developers can set from ODC Studio. They
-allow the same build action to behave differently across apps.
+See **[reference/variables-and-conditions.md](reference/variables-and-conditions.md)** for full syntax and examples.
 
-```json
-"variables": {
-  "APP_NAME": {
-    "type": "string",
-    "default": ""
-  },
-  "TIMEOUT": {
-    "type": "number",
-    "default": 30
-  },
-  "ENABLE_DEBUG": {
-    "type": "boolean",
-    "default": false
-  }
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | yes | `"string"`, `"number"`, or `"boolean"` |
-| `default` | any | no | Fallback value used when the developer does not set the variable. Recommended in most cases so the build action has sensible out-of-the-box behavior. Without a default, the developer must supply a value or the build will fail. |
-
-**Usage in values:** Reference variables with `$VAR_NAME` anywhere in string
-values inside the JSON.
-
-```json
-"attrs": { "android:name": "com.example.$APP_NAME" }
-```
-
-**Conditions** control whether an individual action runs. Add a `condition`
-field to any action entry using function-style expressions:
-
-| Operator | Meaning | Example |
-|----------|---------|---------|
-| `eq(a, b)` | equal | `eq($MODE, "prod")` |
-| `ne(a, b)` | not equal | `ne($ENV, "dev")` |
-| `gt(a, b)` | greater than | `gt($VERSION, 10)` |
-| `ge(a, b)` | greater than or equal | `ge($COUNT, 0)` |
-| `lt(a, b)` | less than | `lt($TIMEOUT, 60)` |
-| `le(a, b)` | less than or equal | `le($LEVEL, 5)` |
-
-Arguments can be variable references (`$VAR_NAME`) or literal values:
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "condition": "ge($EXAMPLE_NUMBER, 0)",
-  "target": "manifest/application",
-  "attrs": { "android:name": "com.example.$APP_NAME" }
-}
-```
+- **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) the developer sets in ODC Studio. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
+- **Usage** — reference with `$VAR_NAME` anywhere in string values: `"android:name": "com.example.$APP_NAME"`
+- **Conditions** — add a `condition` field to any action entry to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
 
 ---
 
@@ -413,95 +364,6 @@ configuration is required — inferred from the generated actions.>
 
 ---
 
-## Complete Example
+## Examples
 
-A realistic Microsoft Azure AD / MSAL authentication plugin. Both platforms
-register the OAuth redirect scheme, declare authenticator app visibility,
-request biometric permissions, and share a keychain token cache.
-
-Both variables are mandatory — there is no sensible default for a per-app
-client ID or URL scheme, so the developer must supply them in ODC Studio.
-
-```json
-{
-  "variables": {
-    "CLIENT_ID": {
-      "type": "string"
-    },
-    "APP_SCHEME": {
-      "type": "string"
-    }
-  },
-  "platforms": {
-    "android": {
-      "manifest": [
-        {
-          "file": "AndroidManifest.xml",
-          "target": "manifest",
-          "merge": "<queries>\n    <package android:name=\"com.azure.authenticator\" />\n    <package android:name=\"com.microsoft.intune\" />\n    <package android:name=\"com.microsoft.windowsintune.companyportal\" />\n</queries>\n"
-        },
-        {
-          "file": "AndroidManifest.xml",
-          "target": "manifest/application",
-          "merge": "<activity android:name=\"com.microsoft.identity.client.BrowserTabActivity\" android:exported=\"true\">\n    <intent-filter>\n        <action android:name=\"android.intent.action.VIEW\" />\n        <category android:name=\"android.intent.category.DEFAULT\" />\n        <category android:name=\"android.intent.category.BROWSABLE\" />\n        <data android:scheme=\"msauth\" android:host=\"$CLIENT_ID\" />\n    </intent-filter>\n</activity>\n"
-        },
-        {
-          "file": "AndroidManifest.xml",
-          "target": "manifest",
-          "merge": "<uses-permission android:name=\"android.permission.USE_BIOMETRIC\" />\n<uses-permission android:name=\"android.permission.USE_FINGERPRINT\" />\n"
-        }
-      ],
-      "gradle": [
-        {
-          "file": "app/build.gradle",
-          "target": {
-            "dependencies": null
-          },
-          "replace": {
-            "implementation": "'com.microsoft.identity.client:msal:5.+'"
-          }
-        }
-      ]
-    },
-    "ios": {
-      "plist": [
-        {
-          "replace": false,
-          "entries": [
-            {
-              "CFBundleURLTypes": [
-                {
-                  "CFBundleURLSchemes": [
-                    "msauth.$CLIENT_ID",
-                    "$APP_SCHEME"
-                  ]
-                }
-              ]
-            },
-            {
-              "LSApplicationQueriesSchemes": [
-                "msauthv2",
-                "msauthv3"
-              ]
-            },
-            {
-              "NSFaceIDUsageDescription": "Allows authentication using Face ID."
-            }
-          ]
-        }
-      ],
-      "entitlements": {
-        "replace": false,
-        "entries": [
-          {
-            "keychain-access-groups": [
-              "$(AppIdentifierPrefix)com.microsoft.adalcache",
-              "$(AppIdentifierPrefix)com.microsoft.identity.universalstorage"
-            ]
-          }
-        ]
-      }
-    }
-  }
-}
-```
+See **[reference/examples.md](reference/examples.md)** for complete, realistic `buildAction.json` files.
