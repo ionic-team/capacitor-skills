@@ -2,8 +2,7 @@
 <!-- Raw (for sync): https://raw.githubusercontent.com/OutSystems/docs-odc/main/src/eap/building-apps/mobile/build-actions-ios.md -->
 <!-- Last verified: 2026-05-15 -->
 <!-- SYNC WARNING: Corrections to the upstream source are pending merge.
-     Do not sync against the master branch until confirmed merged.
-     Update this comment with the PR link once available. -->
+     Do not sync against the master branch until confirmed merged. -->
 
 All iOS build action types supported in the ODC build actions JSON schema.
 All actions go under `platforms.ios` in your `buildAction.json`. The full

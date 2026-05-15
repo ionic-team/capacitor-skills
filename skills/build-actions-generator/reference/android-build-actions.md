@@ -1,3 +1,9 @@
+<!-- Source: https://github.com/OutSystems/docs-odc/blob/main/src/eap/building-apps/mobile/build-actions-android.md -->
+<!-- Raw (for sync): https://raw.githubusercontent.com/OutSystems/docs-odc/main/src/eap/building-apps/mobile/build-actions-android.md -->
+<!-- Last verified: 2026-05-14 -->
+<!-- SYNC WARNING: Corrections to the upstream source are pending merge.
+     Do not sync against the master branch until confirmed merged. -->
+
 # Android Build Actions Reference
 
 All Android build action types supported in the ODC build actions JSON schema.
@@ -18,13 +24,6 @@ Examples in this file show only the `"android": { ... }` portion for brevity.
 
 All actions except `appName` support an optional `condition` field for
 conditional execution — see the Variables & Conditions section in SKILL.md.
-
-<!-- Source: https://github.com/OutSystems/docs-odc/blob/main/src/eap/building-apps/mobile/build-actions-android.md -->
-<!-- Raw (for sync): https://raw.githubusercontent.com/OutSystems/docs-odc/main/src/eap/building-apps/mobile/build-actions-android.md -->
-<!-- Last verified: 2026-05-14 -->
-<!-- SYNC WARNING: Corrections to the upstream source are pending merge.
-     Do not sync against the master branch until confirmed merged.
-     Update this comment with the PR link once available. -->
 
 ---
 
