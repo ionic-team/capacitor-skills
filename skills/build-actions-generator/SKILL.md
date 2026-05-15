@@ -208,11 +208,15 @@ Arguments can be variable references (`$VAR_NAME`) or literal values:
 
 See **[reference/android-build-actions.md](reference/android-build-actions.md)** for full schemas and examples:
 
-- `appName` — Set the Android app name (string, supports variable substitution)
+- `appName` — Set the Android app name (string, no condition support)
 - `manifest` — Modify `AndroidManifest.xml` (set attributes, merge or inject XML)
-- `gradle` — Patch Gradle build files (target paths, key replacements)
+- `gradle` — Patch Gradle build files (insert or replace at target DSL path)
+- `res` — Create resource files under the `res/` folder
+- `json` — Modify JSON files (`set` or `merge`)
 - `xml` — Modify arbitrary XML resource files
-- `code` — Inject, replace, or patch native Android (Java/Kotlin) code snippets (`inject`, `replace`, or `patchFile`)
+- `copy` — Copy files, directories, or URLs into the project
+- `code` — Add or patch native Android (Java/Kotlin) source files (`source`+`targetDir`, `file`+`target`+`replace`, or `file`+`patchFile`)
+- `tar` — Apply tar operations on project files
 
 Quick reference (shown under `platforms.android` — always wrap in `{ "platforms": { "android": { ... } } }`):
 
@@ -221,8 +225,10 @@ Quick reference (shown under `platforms.android` — always wrap in `{ "platform
   "appName":  "$APP_NAME",
   "manifest": [ { "file": "AndroidManifest.xml", "target": "...", "merge": "..." } ],
   "gradle":   [ { "file": "app/build.gradle", "target": { ... }, "replace": { ... } } ],
+  "res":      [ { "path": "raw", "file": "config.json", "text": "..." } ],
   "xml":      [ { "file": "res/xml/...", "target": "...", "merge": "..." } ],
-  "code":     [ { "file": "...", "target": "...", "inject": "..." } ]
+  "copy":     [ { "src": "...", "dest": "..." } ],
+  "code":     [ { "source": "files/MyClass.java", "targetDir": "src/com/example" } ]
 }
 ```
 
@@ -232,10 +238,21 @@ Quick reference (shown under `platforms.android` — always wrap in `{ "platform
 
 See **[reference/ios-build-actions.md](reference/ios-build-actions.md)** for full schemas and examples:
 
-- `plist` — Modify `Info.plist` (replace or merge entries)
-- `entitlements` — Add or modify entitlement keys
-- `displayName` — Override the app display name (string, supports variables)
-- `code` — Inject, replace, or patch native iOS (Swift/Objective-C) code snippets (`inject`, `replace`, or `patchFile`)
+- `displayName` — Set app display name shown on the home screen (no condition support)
+- `productName` — Set product name shown in App Store (no condition support)
+- `buildSettings` — Set Xcode build settings as key-value pairs
+- `buildPhases` — Add or replace custom shell script build phases
+- `plist` — Modify `Info.plist` or other plist files (replace or merge entries)
+- `xcprivacy` — Update `PrivacyInfo.xcprivacy`
+- `entitlements` — Add or modify entitlements (**object**, not array)
+- `frameworks` — Add system or custom frameworks to the Xcode project
+- `json` — Modify JSON files (`set` or `merge`)
+- `xml` — Modify arbitrary XML files
+- `copy` — Copy files, directories, or URLs into the project
+- `strings` — Update `.strings` localization files
+- `xcconfig` — Update `.xcconfig` build configuration files
+- `code` — Add or patch native iOS (Swift/Objective-C) source files (`source`+`compilerFlags`, `file`+`target`+`replace`, or `file`+`patchFile`)
+- `tar` — Apply tar operations on project files
 
 Quick reference (shown under `platforms.ios` — always wrap in `{ "platforms": { "ios": { ... } } }`):
 
@@ -244,7 +261,9 @@ Quick reference (shown under `platforms.ios` — always wrap in `{ "platforms": 
   "displayName": "$APP_NAME",
   "plist":        [ { "replace": false, "entries": [ { "NSKey": "value" } ] } ],
   "entitlements": { "replace": false, "entries": [ { "aps-environment": "production" } ] },
-  "code":         [ { "file": "...", "condition": "...", "patchFile": "patches/..." } ]
+  "frameworks":   [ { "name": "AudioToolbox.framework" } ],
+  "copy":         [ { "src": "...", "dest": "..." } ],
+  "code":         [ { "file": "App/AppDelegate.swift", "patchFile": "patches/..." } ]
 }
 ```
 
