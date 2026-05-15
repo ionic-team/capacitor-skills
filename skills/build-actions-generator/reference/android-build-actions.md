@@ -22,6 +22,9 @@ conditional execution — see the Variables & Conditions section in SKILL.md.
 <!-- Source: https://github.com/OutSystems/docs-odc/blob/main/src/eap/building-apps/mobile/build-actions-android.md -->
 <!-- Raw (for sync): https://raw.githubusercontent.com/OutSystems/docs-odc/main/src/eap/building-apps/mobile/build-actions-android.md -->
 <!-- Last verified: 2026-05-14 -->
+<!-- SYNC WARNING: Corrections to the upstream source are pending merge.
+     Do not sync against the master branch until confirmed merged.
+     Update this comment with the PR link once available. -->
 
 ---
 
@@ -312,16 +315,16 @@ Applies tar operations on files within the Android project.
 
 | Field | Description |
 |-------|-------------|
-| `source` | Path to the tar file |
-| `targetDir` | Target directory for the operation |
+| `src` | Path to the tar file |
+| `dest` | Target directory for the operation |
 | `action` | Tar command: `"c"` (create), `"r"` (append), `"u"` (update), `"x"` (extract) |
 
 ```json
 "android": {
   "tar": [
     {
-      "source": "files/archive.tar",
-      "targetDir": "files/extracted",
+      "src": "files/archive.tar",
+      "dest": "files/extracted",
       "action": "x"
     }
   ]
