@@ -30,31 +30,44 @@ section in SKILL.md.
 ## Targets and builds
 
 iOS build actions support optional scoping by Xcode target and build
-configuration. When omitted, actions apply to the default target and all
-builds.
+configuration. When omitted, actions apply to the default target and the
+default build.
+
+**Mutual exclusivity:** At any given nesting level, `targets`, `builds`, and
+direct actions are **mutually exclusive**. If `targets` is present at a level,
+all other keys at that level — including `builds` and any direct actions — are
+silently dropped and never processed.
+
+| Placement | Target | Build |
+|-----------|--------|-------|
+| Root `ios` level | default | default |
+| Root `builds` > `"Debug"` | default | `"Debug"` |
+| `targets` > `"App"` | `"App"` | default |
+| `targets` > `"App"` > `builds` > `"Release"` | `"App"` | `"Release"` |
 
 ```json
 "ios": {
-  "productName": "Every build and target gets this value!",
-  "builds": {
-    "Debug":   { "displayName": "Debug App" },
-    "Release": { "displayName": "Prod App" }
-  },
+  "productName": "Applies to default target and build"
+}
+```
+
+```json
+"ios": {
   "targets": {
-    "App": { /* operations for the App target (default for Capacitor apps) */ },
-    "My App Clip": {
+    "App": {
       "builds": {
-        "Debug":   { /* operations for My App Clip + Debug */ },
-        "Release": { /* operations for My App Clip + Release */ }
+        "Debug":   { "displayName": "Debug App" },
+        "Release": { "displayName": "Prod App" }
       }
     }
   }
 }
 ```
 
-Any action can be placed at the root level (all targets/builds), inside
-`builds` (specific build, all targets), inside `targets` (specific target, all
-builds), or inside `targets > builds` (specific target + build combination).
+Because `targets`, `builds`, and direct actions are mutually exclusive at each
+level, the two blocks above must be expressed as separate build action entries.
+Placing `productName` alongside `targets` in the same object would silently
+discard `productName`.
 
 ---
 
