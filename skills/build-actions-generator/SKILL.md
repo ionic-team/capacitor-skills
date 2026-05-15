@@ -214,7 +214,7 @@ See **[reference/android-build-actions.md](reference/android-build-actions.md)**
 - `xml` — Modify arbitrary XML resource files
 - `code` — Inject, replace, or patch native Android (Java/Kotlin) code snippets (`inject`, `replace`, or `patchFile`)
 
-Quick reference:
+Quick reference (shown under `platforms.android` — always wrap in `{ "platforms": { "android": { ... } } }`):
 
 ```json
 "android": {
@@ -237,7 +237,7 @@ See **[reference/ios-build-actions.md](reference/ios-build-actions.md)** for ful
 - `displayName` — Override the app display name (string, supports variables)
 - `code` — Inject, replace, or patch native iOS (Swift/Objective-C) code snippets (`inject`, `replace`, or `patchFile`)
 
-Quick reference:
+Quick reference (shown under `platforms.ios` — always wrap in `{ "platforms": { "ios": { ... } } }`):
 
 ```json
 "ios": {

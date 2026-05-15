@@ -1,7 +1,20 @@
 # iOS Build Actions Reference
 
 All iOS build action types supported in the ODC build actions JSON schema.
-These go under `platforms.ios` in your `buildAction.json`.
+All actions go under `platforms.ios` in your `buildAction.json`. The full
+wrapper structure is always required:
+
+```json
+{
+  "platforms": {
+    "ios": {
+      ...actions here...
+    }
+  }
+}
+```
+
+Examples in this file show only the `"ios": { ... }` portion for brevity.
 
 ---
 

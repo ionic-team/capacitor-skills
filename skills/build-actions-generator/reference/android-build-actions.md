@@ -1,12 +1,26 @@
 # Android Build Actions Reference
 
 All Android build action types supported in the ODC build actions JSON schema.
-These go under `platforms.android` in your `buildAction.json`.
+All actions go under `platforms.android` in your `buildAction.json`. The full
+wrapper structure is always required:
+
+```json
+{
+  "platforms": {
+    "android": {
+      ...actions here...
+    }
+  }
+}
+```
+
+Examples in this file show only the `"android": { ... }` portion for brevity.
 
 All actions except `appName` support an optional `condition` field for
 conditional execution — see the Variables & Conditions section in SKILL.md.
 
-<!-- Source: https://success.outsystems.com/documentation/outsystems_developer_cloud/building_apps/mobile_apps/configure_mobile_apps/build_actions/android_build_actions/ -->
+<!-- Source: https://github.com/OutSystems/docs-odc/blob/main/src/eap/building-apps/mobile/build-actions-android.md -->
+<!-- Raw (for sync): https://raw.githubusercontent.com/OutSystems/docs-odc/main/src/eap/building-apps/mobile/build-actions-android.md -->
 <!-- Last verified: 2026-05-14 -->
 
 ---
@@ -101,10 +115,22 @@ of the file.
       "insert": [{ "classpath": "'org.javassist:javassist:3.27.0-GA'" }]
     },
     {
+      "file": "build.gradle",
+      "target": { "allprojects": { "repositories": null } },
+      "insert": [
+        {
+          "maven": [
+            { "url": "https://example.com" },
+            { "name": "MyFeed" }
+          ]
+        }
+      ]
+    },
+    {
       "file": "variables.gradle",
       "target": { "ext": null },
       "insertType": "variable",
-      "insert": [{ "firebaseMessagingVersion": "\"20.0.6\"" }]
+      "insert": [{ "firebaseMessagingVersion": "20.0.6" }]
     },
     {
       "file": "app/build.gradle",
