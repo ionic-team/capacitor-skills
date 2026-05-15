@@ -90,12 +90,12 @@ converted plugins ship with their build configuration already in place.
 ## Invocation & Input Signals
 
 The skill accepts a Capacitor or Cordova plugin as input and writes output to
-a `.build-actions/` folder at the plugin root.
+a `build-actions/` folder at the plugin root.
 
 **Invocation modes:**
 
-- **Path argument** — given a plugin path, writes to `<path>/.build-actions/`
-- **Current directory** — when invoked inside a plugin directory, writes to `./.build-actions/`
+- **Path argument** — given a plugin path, writes to `<path>/build-actions/`
+- **Current directory** — when invoked inside a plugin directory, writes to `./build-actions/`
 
 **Input signal priority:**
 
@@ -123,8 +123,8 @@ This skill handles **Step 1 only**. Steps 2–4 require manual action.
 
 ## JSON File Structure
 
-**Output location:** Files are written to the `.build-actions/` folder at the
-plugin root (e.g., `.build-actions/buildAction.json`).
+**Output location:** Files are written to the `build-actions/` folder at the
+plugin root (e.g., `build-actions/buildAction.json`).
 
 ```json
 {
