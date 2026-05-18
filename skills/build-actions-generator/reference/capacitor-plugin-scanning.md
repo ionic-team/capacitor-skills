@@ -1,0 +1,238 @@
+# Capacitor Plugin Scanning Guide
+
+How to derive build actions from a Capacitor plugin's source. Used during
+Generation Guidelines step 1 when `input-contract.yaml` is absent or partial.
+
+Scan the plugin in four passes:
+1. **Plugin documentation** — extract explicit native setup instructions
+2. **package.json** — detect existing hooks and dependencies
+3. **Android native source** — confirm and supplement what documentation describes
+4. **iOS native source** — confirm and supplement what documentation describes
+
+---
+
+## What cannot be mapped to build actions
+
+Before scanning, identify items that are out of scope:
+
+**Web/JavaScript code** — `src/` and `www/` contain TypeScript and JavaScript
+that runs in the webview. These have no effect on the native build. Skip the
+entire `src/` and `www/` trees.
+
+**User-supplied native files** — Build actions cannot accept files as inputs
+from the consuming app. If the plugin's README instructs the developer to place
+a file like `GoogleService-Info.plist` or `google-services.json` into the
+project, that placement cannot be performed by a build action — the consuming
+app must handle it. Document it as a manual step.
+
+Exception: if the file is bundled inside the plugin itself (not user-supplied),
+a `copy` build action can place it. See
+[reference/android-build-actions.md](reference/android-build-actions.md) and
+[reference/ios-build-actions.md](reference/ios-build-actions.md) for `copy`
+constraints (hardcoded paths only; user-supplied paths are not reliable in ODC).
+
+**Script-type native logic** — Hooks or setup steps that perform code
+generation, SDK initialization, or branching logic beyond what `condition`
+expressions support are Capacitor hook territory. These cannot be expressed as
+build actions. Document them as manual steps.
+
+---
+
+## Pass 1: Plugin documentation
+
+The plugin's `README.md` (and any `docs/` directory) is the most direct signal:
+manual setup instructions the developer must follow before the plugin works.
+These are the primary candidates for build actions.
+
+Look for these sections:
+
+- **Android Setup / Android Configuration**
+- **iOS Setup / iOS Configuration**
+- **Permissions**
+- **Entitlements**
+- **Installation** (may include native config steps inline)
+- **Gradle** or **build.gradle** configuration
+- **Xcode** or **Xcode project** changes
+
+### Mapping documentation content to build actions
+
+| README content | Build action |
+|----------------|--------------|
+| `AndroidManifest.xml` snippet | `manifest` (prefer `merge`) |
+| Gradle dependency or plugin block | `gradle` |
+| `Info.plist` key/value | `plist` |
+| Entitlements entry | `entitlements` |
+| Xcode framework to add | `frameworks` |
+| Xcode build setting | `buildSettings` |
+| Android XML resource file | `xml` |
+| "Add this file to your project" (user-supplied) | Skip — document as manual step |
+
+For the full schema and examples of each action type, see:
+[reference/android-build-actions.md](reference/android-build-actions.md) |
+[reference/ios-build-actions.md](reference/ios-build-actions.md)
+
+---
+
+## Pass 2: package.json
+
+### Existing Capacitor hooks
+
+Check the `scripts` section for hook declarations following the Capacitor
+lifecycle naming pattern (e.g. `after:sync`, `after:update`, `before:copy`).
+Hooks that configure the native project already run during `capacitor sync` in
+MABS — **no build action is needed** for the changes those hooks perform.
+
+From each hook declaration, read the referenced script file to understand what
+native changes it applies. Those changes are already covered and can be
+excluded from build action generation.
+
+**Hook migration** — only if the developer explicitly asks to migrate a hook to
+a build action:
+
+| Hook timing | Can migrate? |
+|-------------|--------------|
+| `after:sync` | ✅ Attempt — runs at end of sync; build actions run after sync |
+| `after:update` | ✅ Attempt — same reasoning |
+| `before:sync`, `before:copy`, `after:copy`, `before:update` | ❌ No — run during sync; build actions run after sync completes |
+
+Even for migratable hooks, classify the operation first:
+- Config-type (manifest patching, plist entries, Gradle changes) → map to the
+  appropriate build action using the same approach as Pass 3 and Pass 4
+- Script-type (code generation, dependency installs, branching logic) → out of
+  scope; the hook must remain as-is
+
+### Dependencies
+
+Check `dependencies` and `devDependencies` for native SDK packages. These
+confirm signals found in Pass 3 and Pass 4 and help identify which Gradle
+dependencies are already declared in the plugin's own build files.
+
+---
+
+## Pass 3: Android native source
+
+### Bundled AndroidManifest.xml
+
+If `android/src/main/AndroidManifest.xml` exists with content (permissions,
+features, activities, services, providers), **Capacitor CLI merges it into the
+app's manifest during sync**. Do not create build actions for entries already
+present there — they are handled automatically.
+
+Only create a `manifest` build action for entries that are:
+- Required based on README instructions or source analysis but absent from the
+  bundled manifest
+- Conditionally needed depending on app configuration (use a variable +
+  `condition`)
+
+### Gradle files
+
+The plugin's own `android/build.gradle` dependencies are applied by Capacitor
+CLI during sync. A `gradle` build action is only needed for entries that must go
+into the **app-level** or **root-level** build files — for example:
+
+- A `maven` repository in the root `allprojects` block
+- A `buildscript classpath` dependency in the root `build.gradle`
+- An `apply plugin` statement in `app/build.gradle`
+
+Check `android/build.gradle` and `android/variables.gradle` to understand what
+the plugin already provides, and cross-reference with any Gradle instructions
+in the README to identify what still needs a build action.
+
+### Java / Kotlin source
+
+Scan source files under `android/src/main/java/` or `android/src/main/kotlin/`:
+
+| Signal | What to check |
+|--------|---------------|
+| `@CapacitorPlugin(permissions = [...])` annotation | Whether those permissions are in the bundled manifest — if yes, skip |
+| `checkPermissions` / `requestPermissions` calls | Confirms runtime permissions are required |
+| `import android.Manifest` | Permissions used at runtime — verify manifest coverage |
+| Third-party SDK imports (e.g. `com.google.*`, `com.firebase.*`) | Gradle dependency — check if plugin's own gradle covers it or if app-level entry is needed |
+| `getSystemService(Context.BLUETOOTH_SERVICE)` | Bluetooth permissions — check manifest |
+| `getPackageManager().hasSystemFeature(...)` | Hardware feature declaration may be needed |
+
+---
+
+## Pass 4: iOS native source
+
+### Package.swift and .podspec
+
+Framework and library dependencies declared in `Package.swift` (`.package(url:)`)
+or a `.podspec` (`s.dependency`) are handled by Capacitor CLI during sync. **No
+build action is required** for these. Skip them.
+
+### Swift / Objective-C source
+
+Scan source files under `ios/Sources/` (SPM layout) or `ios/Plugin/` (legacy
+CocoaPods layout). Framework imports and API usage are the primary signals for
+`plist` usage descriptions and `entitlements` entries:
+
+| Framework import / API usage | Plist key or entitlement needed |
+|------------------------------|--------------------------------|
+| `import CoreLocation` / `CLLocationManager` | `NSLocationWhenInUseUsageDescription` and/or `NSLocationAlwaysAndWhenInUseUsageDescription` |
+| `import AVFoundation` / `AVCaptureDevice` | `NSCameraUsageDescription` |
+| `import AVFoundation` / `AVAudioSession` | `NSMicrophoneUsageDescription` |
+| `import Contacts` / `CNContactStore` | `NSContactsUsageDescription` |
+| `import EventKit` / `EKEventStore` | `NSCalendarsUsageDescription` |
+| `import CoreBluetooth` / `CBCentralManager` | `NSBluetoothAlwaysUsageDescription` |
+| `import LocalAuthentication` / `LAContext` | `NSFaceIDUsageDescription` |
+| `import Photos` / `PHPhotoLibrary` | `NSPhotoLibraryUsageDescription` and/or `NSPhotoLibraryAddUsageDescription` |
+| `import CoreMotion` / `CMMotionManager` | `NSMotionUsageDescription` |
+| `import CoreNFC` / `NFCReaderSession` | `NFCReaderUsageDescription` + `com.apple.developer.nfc.readersession.formats` entitlement |
+| `import HealthKit` / `HKHealthStore` | `NSHealthShareUsageDescription` |
+| `import UserNotifications` / `UNUserNotificationCenter` | `aps-environment` entitlement |
+
+The framework import confirms the capability is used. Usage description text
+should be inferred from context (e.g. camera plugin → "Used for scanning") or
+left as a variable for the developer to supply.
+
+### Entitlements
+
+Look for these patterns in source files or the README:
+
+| Pattern | Entitlement |
+|---------|-------------|
+| `UNUserNotificationCenter`, `didRegisterForRemoteNotifications` | `aps-environment`: `"development"` or `"production"` |
+| `UserDefaults(suiteName:)`, shared containers | `com.apple.security.application-groups` |
+| Keychain access (`kSecAttrAccessGroup`) | `keychain-access-groups` |
+| Universal links, Handoff | `com.apple.developer.associated-domains` |
+| `NFCReaderSession` | `com.apple.developer.nfc.readersession.formats` |
+
+---
+
+## Tracking unmapped items
+
+For every README instruction or source signal that cannot be mapped to a build
+action, record:
+- The item (README section, hook name, file reference)
+- The reason it was not mapped (user-supplied file, script-type hook, no build
+  action equivalent)
+- The recommended approach (manual step or retain as Capacitor hook)
+
+This list feeds the `## What requires additional setup` section of the
+generated README and the one-line terminal note. See Generation Guidelines
+step 5 in SKILL.md.
+
+---
+
+## Summary: signal-to-action mapping
+
+| Signal | Build action |
+|--------|--------------|
+| README: AndroidManifest.xml snippet | `manifest` |
+| README: Gradle dependency / plugin | `gradle` |
+| README: Info.plist entry | `plist` |
+| README: Entitlements entry | `entitlements` |
+| README: Add framework in Xcode | `frameworks` |
+| README: Xcode build setting | `buildSettings` |
+| README: Add file to project (user-supplied) | Skip — manual step |
+| Bundled `android/AndroidManifest.xml` entries | Skip — Capacitor CLI merges during sync |
+| Plugin's own `android/build.gradle` dependencies | Skip — Capacitor CLI applies during sync |
+| App-level Gradle entry (root or app `build.gradle`) | `gradle` |
+| `@CapacitorPlugin(permissions = [...])` + bundled manifest | Skip — already declared |
+| iOS framework import + missing plist usage description | `plist` |
+| Entitlement usage pattern in source | `entitlements` |
+| `Package.swift` / `.podspec` dependencies | Skip — Capacitor CLI handles during sync |
+| Existing `after:sync` / `after:update` hook (config-type) | Skip unless migration explicitly requested |
+| Existing hook (script-type) | Skip — retain as Capacitor hook |
+| `src/` / `www/` JavaScript or TypeScript | Skip — web code, not applicable |

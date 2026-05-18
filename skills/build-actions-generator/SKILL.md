@@ -104,7 +104,7 @@ a `build-actions/` folder at the plugin root.
 2. **Plugin source scanning (fallback)** — When the contract is absent or
    partial, scan the plugin source for native requirement signals:
    - Cordova plugins: parse `plugin.xml` for `<config-file>`, `<hook>`, and permission elements
-   - Capacitor plugins: inspect native source files for declared permissions, capabilities, and dependencies
+   - Capacitor plugins: scan plugin documentation, package.json, and native source files — see **[reference/capacitor-plugin-scanning.md](reference/capacitor-plugin-scanning.md)**
 
 ---
 
