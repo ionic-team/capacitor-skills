@@ -142,39 +142,67 @@ it as `$CLIENT_ID` in relevant action values.
 
 ## Pass 2: Hook elements
 
-Not all hooks map to build actions. Classify each `<hook>` before deciding.
+Build actions run **after `capacitor sync`**, during the MABS cloud build only,
+and execute **once per build**. This shapes which hooks are candidates:
 
-### Config-type hooks → build action candidates
+- Hooks that **configure the native project** (patch manifests, copy files, add
+  dependencies) are candidates — the config patching still needs to happen at
+  build time in MABS, even if it previously ran at install time in Cordova.
+- Hooks that run at **deploy, emulate, run, or serve** time have no equivalent
+  phase in a MABS build and are not applicable.
+- Hooks tied to **development workflow** (platform management, plugin
+  install/uninstall, clean) are not applicable.
 
-Map to a build action when the hook **copies files, patches XML/plist, or adds
-Gradle entries**. These are the things build actions do natively and more
-reliably.
+### Hook type reference
 
-Common signals:
-- Hook reads and writes `AndroidManifest.xml`, `Info.plist`, or other config files
-- Hook copies a bundled file (e.g., `google-services.json`) into the native project
-- Hook appends a Gradle dependency or applies a plugin
+| Hook type | Typical use | Build action suitability |
+|-----------|-------------|--------------------------|
+| `after_prepare` | Copy config files, patch manifests/plist after sync | ✅ Classify further |
+| `before_build` | Pre-build config patching, file setup | ✅ Classify further |
+| `before_compile` | Config changes before native compilation | ✅ Classify further |
+| `after_plugin_install` | Post-install config setup, file copying | ✅ Classify further — patching still needed at build time |
+| `before_plugin_install` | Pre-install checks, validation | ❌ No equivalent phase in MABS |
+| `after_build` | Post-build tasks (archive, notify) | ❌ No post-build phase in build actions |
+| `after_compile` | Post-compile tasks | ❌ Not applicable |
+| `before_plugin_uninstall` | Cleanup on uninstall | ❌ Not applicable |
+| `before/after_deploy` | Deploy-time tasks | ❌ Not applicable — MABS does not deploy |
+| `before/after_emulate` | Emulator tasks | ❌ Not applicable |
+| `before/after_run` | Device run tasks | ❌ Not applicable |
+| `before/after_serve` | Dev server tasks | ❌ Not applicable |
+| `before/after_clean` | Clean tasks | ❌ Not applicable |
+| `before/after_platform_add/rm/ls` | Platform management | ❌ Not applicable |
+| `before/after_plugin_add/rm/ls` | Plugin management | ❌ Not applicable |
 
-Map these to the appropriate build action (`manifest`, `plist`, `gradle`,
-`copy`, `res`, `xml`) using the element tables above as a guide.
+### For ✅ hook types: classify the operation
 
-### Script-type hooks → out of scope (Capacitor hook territory)
+Even for applicable hook types, the hook's actual operation determines the
+outcome:
 
-Defer to the `cordova-plugin-migrator` skill when the hook:
+**Config-type operations → map to a build action:**
+- Copies a bundled config file into the native project → `copy` or `res`
+- Patches `AndroidManifest.xml` → `manifest`
+- Patches `Info.plist` → `plist`
+- Adds a Gradle dependency or applies a plugin → `gradle`
+- Creates or modifies an XML resource → `xml`
+
+Use the Pass 1 element-to-action table as a guide for the specific build action
+shape.
+
+**Script-type operations → out of scope (Capacitor hook territory):**
 - Manages npm/pod dependencies or runs `pod install`
 - Performs code generation or asset compilation
-- Contains branching logic beyond what build action `condition` expressions support
+- Contains branching logic beyond what build action `condition` expressions
+  support
 - Uses Cordova context APIs (`context.opts`, `context.cordova`, etc.)
 
-These are better expressed as Capacitor lifecycle hooks
-(`capacitor:sync:after`, etc.) or `postinstall` npm scripts.
+Defer to the `cordova-plugin-migrator` skill. These are better expressed as
+Capacitor lifecycle hooks (`capacitor:sync:after`, etc.) or `postinstall` npm
+scripts.
 
-### Blocker hooks → document as a manual step
-
-Flag for manual developer action when the hook:
-- Interacts with Cordova internals not present in Capacitor
-- Requires user input at install time
+**Blocker operations → document as a manual step:**
+- Requires user input at runtime
 - Modifies `plugin.xml` at runtime
+- Depends on Cordova-specific internals with no Capacitor equivalent
 
 These cannot be expressed as build actions or Capacitor hooks without
 significant rework.
@@ -195,7 +223,8 @@ significant rework.
 | `<resource-file>` | `copy` or `res` |
 | `<source-file>` | `code` (use with caution) |
 | `<preference>` | variable |
-| `<hook>` — config-type | appropriate action (classify first) |
-| `<hook>` — script-type | out of scope → Capacitor hook |
-| `<hook>` — blocker | out of scope → manual step |
+| `<hook>` (applicable type, config-type op) | appropriate action — see Pass 2 |
+| `<hook>` (applicable type, script-type op) | out of scope → Capacitor hook |
+| `<hook>` (applicable type, blocker op) | out of scope → manual step |
+| `<hook>` (non-applicable type) | skip — no equivalent phase in MABS |
 | `<config-file target="config.xml">` | skip |
