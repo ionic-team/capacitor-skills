@@ -241,12 +241,35 @@ shape, and the platform reference files for the full schema and examples:
 [reference/android-build-actions.md](reference/android-build-actions.md) |
 [reference/ios-build-actions.md](reference/ios-build-actions.md).
 
+**Pattern: conditional set / conditional delete**
+
+Hooks often branch on a preference value to either set or delete a config entry.
+Map these using a `condition` on the build action rather than looking for a
+delete equivalent:
+
+- **Conditional set** (`if PREF == true → set VALUE`) → build action with
+  `condition: eq($PREF, true)`
+- **Conditional delete** (`if PREF == false → delete VALUE`) → identify where
+  VALUE was originally added (declarative element or another hook path). If it
+  comes from a `<config-file>` or `<edit-config>` element that maps to a build
+  action, make that build action conditional with the inverse:
+  `condition: ne($PREF, false)`. Because the build action is the sole source of
+  the value (Capacitor CLI does not auto-populate `plist` keys or deep manifest
+  paths), skipping it means the value is never added — no deletion is needed.
+
+Note: `plist` has no delete operation. `manifest` and `xml` do support `delete`,
+but prefer the conditional approach above when the value originates from a
+declarative element — it is simpler and avoids ordering dependencies.
+
 **Script-type operations → out of scope (Capacitor hook territory):**
 - Manages npm/pod dependencies or runs `pod install`
 - Performs code generation or asset compilation
 - Contains branching logic beyond what build action `condition` expressions
   support
-- Uses Cordova context APIs (`context.opts`, `context.cordova`, etc.)
+- Uses Cordova context APIs for the operation itself (plugin management,
+  platform manipulation) — note: using `context.opts` only to resolve the
+  project root, or using `ConfigParser` only to read preference values, does not
+  make a hook script-type if the underlying operation is config-type
 
 The `cordova-plugin-migrator` skill classifies these hooks and determines how
 they should be handled. The actual implementation — as Capacitor lifecycle hooks
