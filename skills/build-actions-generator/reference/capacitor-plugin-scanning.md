@@ -31,10 +31,10 @@ a `copy` build action can place it. See
 [reference/ios-build-actions.md](reference/ios-build-actions.md) for `copy`
 constraints (hardcoded paths only; user-supplied paths are not reliable in ODC).
 
-**Script-type native logic** — Hooks or setup steps that perform code
+**Script-type native logic** — Hooks or setup steps that perform complex code
 generation, SDK initialization, or branching logic beyond what `condition`
 expressions support are Capacitor hook territory. These cannot be expressed as
-build actions. Document them as manual steps.
+build actions. Document them as manual steps or suggest creating Capacitor Hooks (out of context of this skill). Simple code insertion (like creating a new code file) can be done with the `code` build action, but is discouraged for complex scenarios.
 
 ---
 
@@ -122,7 +122,7 @@ Only create a `manifest` build action for entries that are:
 - Required based on README instructions or source analysis but absent from the
   bundled manifest
 - Conditionally needed depending on app configuration (use a variable +
-  `condition`)
+  `condition` - See [reference/variables-and-conditions](reference/variables-and-conditions.md))
 
 ### Gradle files
 
@@ -182,9 +182,8 @@ CocoaPods layout). Framework imports and API usage are the primary signals for
 | `import HealthKit` / `HKHealthStore` | `NSHealthShareUsageDescription` |
 | `import UserNotifications` / `UNUserNotificationCenter` | `aps-environment` entitlement |
 
-The framework import confirms the capability is used. Usage description text
-should be inferred from context (e.g. camera plugin → "Used for scanning") or
-left as a variable for the developer to supply.
+The framework import confirms the capability is used. Usage description text should be left as a variable (See [reference/variables-and-conditions](reference/variables-and-conditions.md)), but its default value
+should be inferred from context if possible (e.g. camera plugin → "Used for scanning").
 
 ### Entitlements
 
