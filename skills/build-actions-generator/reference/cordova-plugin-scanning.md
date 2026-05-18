@@ -237,7 +237,9 @@ outcome:
 - Creates or modifies an XML resource → `xml`
 
 Use the Pass 1 element-to-action table as a guide for the specific build action
-shape.
+shape, and the platform reference files for the full schema and examples:
+[reference/android-build-actions.md](reference/android-build-actions.md) |
+[reference/ios-build-actions.md](reference/ios-build-actions.md).
 
 **Script-type operations → out of scope (Capacitor hook territory):**
 - Manages npm/pod dependencies or runs `pod install`
