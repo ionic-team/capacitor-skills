@@ -324,6 +324,12 @@ configuration is required — inferred from the generated actions.>
 |--------|---------|
 | `<action type>` | <what it sets up> |
 
+## What requires additional setup
+
+| Hook / element | Reason not mapped | Recommended approach |
+|----------------|-------------------|----------------------|
+| `<hook type>` | <why it can't be a build action> | Capacitor hook / manual step |
+
 ## Variables
 
 | Variable | Type | Required | Default | Description |
@@ -360,16 +366,24 @@ configuration is required — inferred from the generated actions.>
 
 **README authoring rules:**
 - Omit the `### Android` or `### iOS` section if that platform has no actions.
+- Omit `## What requires additional setup` entirely if all input signals were
+  mapped to build actions. Include it only when hooks or elements were found
+  that could not be mapped.
 - Omit the `## Variables` section entirely if there are no variables.
 - In the `## Variables` table, set Required to `yes` if there is no default,
   `no` if a default exists. Leave Default as `—` when Required is `yes`.
 - The extensibility JSON in `## ODC Setup` should reflect actual variable names
   from the generated JSON, not placeholder `VAR_NAME`.
+- In `## What requires additional setup`, set Recommended approach to
+  `Capacitor hook` for script-type hooks and `Manual step` for blockers.
 
 **Terminal output after generating both files:**
 - Output the generated `buildAction.json` contents.
 - Follow with a single short note: *"See `build-actions/README.md` for a
   summary of what this configures and ODC setup instructions."*
+- If `## What requires additional setup` was written to the README, add one
+  additional line: *"Some hooks or elements could not be mapped to build
+  actions — see `build-actions/README.md` for details."*
 - If the developer did not explicitly mention ODC as the target platform, add
   one sentence noting that build actions only take effect in ODC builds, not in
   standalone Capacitor apps.

@@ -195,9 +195,10 @@ shape.
   support
 - Uses Cordova context APIs (`context.opts`, `context.cordova`, etc.)
 
-Defer to the `cordova-plugin-migrator` skill. These are better expressed as
-Capacitor lifecycle hooks (`capacitor:sync:after`, etc.) or `postinstall` npm
-scripts.
+The `cordova-plugin-migrator` skill classifies these hooks and determines how
+they should be handled. The actual implementation — as Capacitor lifecycle hooks
+(`capacitor:sync:after`, etc.) or `postinstall` npm scripts — is the
+developer's responsibility and outside the scope of build actions.
 
 **Blocker operations → document as a manual step:**
 - Requires user input at runtime
@@ -206,6 +207,17 @@ scripts.
 
 These cannot be expressed as build actions or Capacitor hooks without
 significant rework.
+
+### Tracking unmapped items
+
+For every hook or element that cannot be mapped to a build action, record:
+- The hook type or element name
+- The reason it was not mapped (script-type, blocker, non-applicable timing)
+- The recommended approach (Capacitor hook or manual step)
+
+This list feeds the `## What requires additional setup` section of the
+generated README and the one-line terminal note. See Generation Guidelines
+step 5 in SKILL.md.
 
 ---
 
