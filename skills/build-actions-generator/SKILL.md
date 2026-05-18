@@ -378,9 +378,13 @@ configuration is required — inferred from the generated actions.>
   `Capacitor hook` for script-type hooks and `Manual step` for blockers.
 
 **Terminal output after generating both files:**
-- Output the generated `buildAction.json` contents.
-- Follow with a single short note: *"See `build-actions/README.md` for a
-  summary of what this configures and ODC setup instructions."*
+- Do not output the `buildAction.json` contents — the file write already
+  displays them.
+- Do not show analysis tables, scanning decisions, or per-element reasoning in
+  the terminal. Internal reasoning stays internal; noteworthy decisions that did
+  not map cleanly belong in the README, not the terminal.
+- Output a single short note: *"See `build-actions/README.md` for a summary of
+  what this configures and ODC setup instructions."*
 - If `## What requires additional setup` was written to the README, add one
   additional line: *"Some hooks or elements could not be mapped to build
   actions — see `build-actions/README.md` for details."*
