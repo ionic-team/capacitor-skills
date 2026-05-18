@@ -4,35 +4,61 @@ How to derive build actions from a Cordova plugin's source. Used during
 Generation Guidelines step 1 when `input-contract.yaml` is absent or partial.
 
 The primary source of truth is `plugin.xml`. Scan it in two passes:
-1. **Declarative config elements** — map directly to build actions
+1. **Declarative config elements** — determine which require build actions vs. what Capacitor CLI already handles during sync
 2. **Hook elements** — classify first, then map or defer
 
 ---
 
 ## Pass 1: Declarative config elements
 
-### `<platform>` wrappers
+Build-action-relevant elements are always scoped inside a `<platform>` block:
 
-All elements inside `<platform name="android">` apply to Android only, and
-`<platform name="ios">` to iOS only. Elements at the root level of `plugin.xml`
-(outside any `<platform>`) apply to both.
+- Elements inside `<platform name="android">` → map to **Android** build actions only
+- Elements inside `<platform name="ios">` → map to **iOS** build actions only
+
+Root-level elements (outside any `<platform>`) do not map to build actions,
+with one exception: root-level `<hook>` elements apply to both platforms and
+are classified in Pass 2.
+
+Elements not listed in this guide do not apply to build actions and can be
+skipped.
 
 ### `<config-file>`
 
-The most common source of build actions. The `target` attribute identifies the
-file to modify; `parent` is the XPath insertion point.
+The `target` attribute identifies the file to modify; `parent` is the XPath
+insertion point. Whether a build action is needed depends on both.
 
-| `target` value | Build action |
-|----------------|--------------|
-| `AndroidManifest.xml` | `manifest` (use `merge` or `inject`) |
-| `*-Info.plist` | `plist` |
-| `res/xml/*.xml` | `xml` (Android) |
-| `config.xml` | Skip — Cordova-specific, no build action equivalent |
+| `target` value | `parent` | Build action |
+|----------------|----------|--------------|
+| `AndroidManifest.xml` | ends in `application` or `/*` | Skip — handled by Capacitor CLI during sync |
+| `AndroidManifest.xml` | any deeper path | `manifest` (use `merge` or `inject`) |
+| `*-Info.plist` | any | `plist` |
+| `res/xml/*.xml` | any | `xml` with `resFile` (Android) |
+| iOS entitlements file (e.g. `Entitlements-Debug.plist`) | any | `entitlements` |
+| other iOS plist file (e.g. `GoogleService-Info.plist`) | any | `plist` with `file` |
+| Android `res/values/*.xml` or other XML file | any | `xml` with `resFile` or `file` |
+| `config.xml` | any | Skip — Cordova-specific, no build action equivalent |
+| JSON file (e.g. `google-services.json`) | any | `json` build action |
+| any other target | any | Skip — silently ignored by Capacitor CLI; assess case by case, no direct equivalent if not XML, plist, or JSON |
 
 ```xml
-<!-- Android → manifest merge -->
+<!-- parent targets <application> directly → handled by Capacitor CLI, skip -->
 <config-file target="AndroidManifest.xml" parent="/manifest/application">
   <activity android:name="com.example.MyActivity" android:exported="true" />
+</config-file>
+
+<!-- parent targets manifest root → handled by Capacitor CLI, skip -->
+<config-file target="AndroidManifest.xml" parent="/*">
+  <uses-permission android:name="android.permission.CAMERA" />
+</config-file>
+
+<!-- deeper parent path → build action needed -->
+<config-file target="AndroidManifest.xml"
+  parent="/manifest/application/activity[@android:name='MainActivity']">
+  <intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <data android:scheme="myapp" />
+  </intent-filter>
 </config-file>
 
 <!-- iOS → plist entry -->
@@ -46,11 +72,23 @@ The `parent` XPath maps directly to the build action `target` field. Prefer
 
 ### `<edit-config>`
 
-A newer alternative to `<config-file>` for attribute-level changes. Maps to
-`manifest` with `attrs`.
+A newer alternative to `<config-file>` for attribute-level changes. Processed
+by Capacitor CLI using the same code paths as `<config-file>`, so the same
+`file`/`target` rules apply across all targets:
+
+| `file` value | `target` | Build action |
+|--------------|----------|--------------|
+| `AndroidManifest.xml` | ends in `application` or `/*` | Skip — handled by Capacitor CLI during sync |
+| `AndroidManifest.xml` | any deeper path | `manifest` with `attrs` |
+| `*-Info.plist` | any | `plist` |
+| iOS entitlements file | any | `entitlements` |
+| other iOS plist file | any | `plist` with `file` |
+| `config.xml` | any | Skip — Cordova-specific, no build action equivalent |
+| JSON file (e.g. `google-services.json`) | any | `json` build action |
+| any other file | any | Skip — silently ignored by Capacitor CLI; assess case by case |
 
 ```xml
-<!-- → manifest attrs -->
+<!-- file targets a specific activity (deeper path) → build action needed -->
 <edit-config file="AndroidManifest.xml"
   target="/manifest/application/activity[@android:name='MainActivity']"
   mode="merge">
@@ -58,85 +96,97 @@ A newer alternative to `<config-file>` for attribute-level changes. Maps to
 </edit-config>
 ```
 
-### `<uses-permission>`
-
-Maps directly to a `manifest` merge.
-
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-```
-
-→
-
-```json
-{
-  "file": "AndroidManifest.xml",
-  "target": "manifest",
-  "merge": "<uses-permission android:name=\"android.permission.CAMERA\" />\n"
-}
-```
-
 ### `<framework>`
 
-**Android** — maps to `gradle` insert into `dependencies` (Maven coordinate) or
-`gradle` insert at top level (local `.gradle` file via `apply plugin`).
+Fully handled by Capacitor CLI during `capacitor sync` for all relevant
+variants (iOS system/custom/lib, Android plain and `gradleReference`).
+Android frameworks with other `type` values (e.g. `type="system"`) are silently
+ignored by Capacitor CLI and have no build action equivalent. No build action
+required. Skip these elements.
 
-```xml
-<framework src="com.google.firebase:firebase-messaging:+" />
-<framework src="libs/mylib.jar" custom="true" />
-```
+### `<dependency>`
 
-**iOS** — maps to `frameworks`.
+Declares a dependency on another Cordova plugin. In the standard Capacitor CLI,
+`<dependency>` elements are validated only — missing dependencies are warned
+about but never auto-installed. In MABS Capacitor, declared dependencies are
+read and installed automatically. No build action required in either case.
+Skip these elements.
 
-```xml
-<framework src="AudioToolbox.framework" />
-<framework src="src/ios/MyCustom.framework" custom="true" embed="true" />
-```
+### `<podspec>`
 
-→
+iOS only. Handled by Capacitor CLI during `capacitor sync` for CocoaPods-based
+projects. For SPM-based projects, `<podspec>` is not read — the plugin requires
+a `Package.swift` instead, which is outside the scope of build actions. No
+build action required. Skip these elements.
 
-```json
-{ "name": "AudioToolbox.framework" }
-{ "name": "MyCustom.framework", "customFramework": true, "embed": true }
-```
+### `<resource-file>` and `<lib-file>`
 
-### `<resource-file>`
+Fully handled by Capacitor CLI during `capacitor sync` — resource files are
+copied to the appropriate native directories automatically. No build action
+required. Skip these elements.
 
-Maps to `copy` (for generic file placement) or `res` (for Android `res/`
-subfolders). Only safe when the source is a bundled file at a fixed path — see
-the `copy`/`tar` caveats in the platform reference files.
+### `<source-file>` and `<header-file>`
 
-```xml
-<resource-file src="src/android/google-services.json"
-               target="app/google-services.json" />
-```
-
-→ `copy` with `src` relative to the plugin bundle and `dest` as the target path.
-
-### `<source-file>`
-
-Maps to `code` (add source file variant). Use with caution — prefer config-level
-alternatives where possible. See the `code` action caveats in the platform
-reference files.
-
-```xml
-<source-file src="src/android/MyPlugin.java"
-             target-dir="src/com/example/myplugin" />
-```
-
-→ `code` with `source` + `targetDir` (Android) or `source` alone (iOS).
+Fully handled by Capacitor CLI during `capacitor sync` — source and header files
+are copied to the appropriate native directories automatically. No build action
+required. Skip these elements.
 
 ### `<preference>`
 
-Cordova preferences that gate behaviour at build time should become build action
-variables.
+A `<preference>` declares a named value substituted as `$PREF_NAME` in other
+`plugin.xml` elements. Capacitor CLI only ever uses the `default` attribute —
+ODC developers cannot override preference values through Capacitor CLI.
+
+**Step 1 — trace where `$PREF_NAME` is used.** A preference can appear in
+three contexts:
+
+- **Declarative elements** (`<config-file>`, `<framework>`, etc.) — use the
+  Pass 1 table to determine whether those elements produce build actions.
+- **Hook scripts** — classify the hook first using Pass 2, then apply the
+  same variable logic if the hook maps to a build action.
+- **Runtime JavaScript code** — the preference is read at app runtime, not at
+  build time. Not applicable for build actions; skip it.
+
+If `$PREF_NAME` is not referenced anywhere that results in a build action,
+skip it — do not add an unused variable.
+
+**Step 2 — decide whether a build action variable is needed:**
+
+| Context | `$PREF_NAME` referenced in... | Action |
+|---------|-------------------------------|--------|
+| Any | build-action-required element | Add variable + ensure build action uses `$PREF_NAME` |
+| Cordova plugin kept as-is for MABS | CLI-handled element, default is fixed | Skip — Capacitor CLI substitutes the default during sync |
+| Cordova plugin being converted to a Capacitor plugin | CLI-handled element | Add variable — `plugin.xml` won't exist; build actions are the replacement |
+| Any | nowhere that produces a build action | Skip |
+
+When in doubt, add the variable. A variable with a `default` never causes
+build failures and gives developers the flexibility to override in ODC Studio.
+
+**Step 3 — if one or more variables are needed, write them.** A single
+`buildAction.json` can declare multiple variables, one per qualifying
+preference. See
+[reference/variables-and-conditions.md](reference/variables-and-conditions.md).
+Map each `<preference name="X" default="Y">` to a variable `X`: use type
+`string` by default, or infer `number`/`boolean` when the default value is
+clearly numeric or boolean. Set `default` to the preference's `default`
+attribute value. Reference with `$X` in build action string values.
 
 ```xml
 <preference name="CLIENT_ID" default="" />
 ```
 
-→ Add a variable `CLIENT_ID` of type `string` with `default: ""` and reference
-it as `$CLIENT_ID` in relevant action values.
+→
+
+```json
+"variables": {
+  "CLIENT_ID": { "type": "string", "default": "" }
+}
+```
+
+### `<hook>`
+
+Not processed in Pass 1. See **Pass 2** below for hook classification and
+build action mapping.
 
 ---
 
@@ -225,18 +275,31 @@ step 5 in SKILL.md.
 
 | `plugin.xml` element | Build action |
 |----------------------|--------------|
-| `<config-file target="AndroidManifest.xml">` | `manifest` (merge or inject) |
+| `<config-file target="AndroidManifest.xml">` (`parent` = `application` or `/*`) | Skip — handled by Capacitor CLI during sync |
+| `<config-file target="AndroidManifest.xml">` (deeper `parent`) | `manifest` (merge or inject) |
 | `<config-file target="*-Info.plist">` | `plist` |
-| `<config-file target="res/xml/...">` | `xml` |
-| `<edit-config file="AndroidManifest.xml">` | `manifest` (attrs) |
-| `<uses-permission>` | `manifest` merge |
-| `<framework>` (Android) | `gradle` |
-| `<framework>` (iOS) | `frameworks` |
-| `<resource-file>` | `copy` or `res` |
-| `<source-file>` | `code` (use with caution) |
-| `<preference>` | variable |
+| `<config-file target="res/xml/...">` | `xml` with `resFile` |
+| `<config-file>` targeting iOS entitlements file | `entitlements` |
+| `<config-file>` targeting other iOS plist file | `plist` with `file` |
+| `<config-file>` targeting Android `res/values/` or other XML file | `xml` with `resFile` or `file` |
+| `<config-file>` targeting a JSON file | `json` build action |
+| `<config-file>` targeting any other file | Skip — silently ignored by Capacitor CLI; assess case by case |
+| `<edit-config file="AndroidManifest.xml">` (`target` = `application` or `/*`) | Skip — handled by Capacitor CLI during sync |
+| `<edit-config file="AndroidManifest.xml">` (deeper `target`) | `manifest` (attrs) |
+| `<edit-config>` targeting `*-Info.plist` | `plist` |
+| `<edit-config>` targeting iOS entitlements file | `entitlements` |
+| `<edit-config>` targeting other iOS plist file | `plist` with `file` |
+| `<edit-config>` targeting `config.xml` or any other file | Skip — same rules as `<config-file>` |
+| `<framework>` (Android plain / `gradleReference`) | Skip — handled by Capacitor CLI during sync |
+| `<framework>` (Android other types, e.g. `type="system"`) | Skip — silently ignored by Capacitor CLI, no build action equivalent |
+| `<framework>` (iOS) | Skip — handled by Capacitor CLI during sync |
+| `<dependency>` | Skip — handled by MABS Capacitor; no build action equivalent |
+| `<podspec>` | Skip — handled by Capacitor CLI during sync (CocoaPods); SPM requires `Package.swift`, out of scope |
+| `<resource-file>` | Skip — handled by Capacitor CLI during sync |
+| `<lib-file>` | Skip — handled by Capacitor CLI during sync |
+| `<source-file>` / `<header-file>` | Skip — handled by Capacitor CLI during sync |
+| `<preference>` | variable — see `<preference>` section in Pass 1 for full analysis |
 | `<hook>` (applicable type, config-type op) | appropriate action — see Pass 2 |
 | `<hook>` (applicable type, script-type op) | out of scope → Capacitor hook |
 | `<hook>` (applicable type, blocker op) | out of scope → manual step |
 | `<hook>` (non-applicable type) | skip — no equivalent phase in MABS |
-| `<config-file target="config.xml">` | skip |
