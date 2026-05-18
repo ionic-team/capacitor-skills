@@ -1,8 +1,6 @@
 <!-- Source: https://github.com/OutSystems/docs-odc/blob/main/src/eap/building-apps/mobile/build-actions-android.md -->
 <!-- Raw (for sync): https://raw.githubusercontent.com/OutSystems/docs-odc/main/src/eap/building-apps/mobile/build-actions-android.md -->
-<!-- Last verified: 2026-05-14 -->
-<!-- SYNC WARNING: Corrections to the upstream source are pending merge.
-     Do not sync against the master branch until confirmed merged. -->
+<!-- Last verified: 2026-05-18 -->
 
 # Android Build Actions Reference
 
