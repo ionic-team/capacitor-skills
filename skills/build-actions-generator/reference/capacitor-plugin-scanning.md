@@ -31,10 +31,14 @@ a `copy` build action can place it. See
 [reference/ios-build-actions.md](reference/ios-build-actions.md) for `copy`
 constraints (hardcoded paths only; user-supplied paths are not reliable in ODC).
 
-**Script-type native logic** — Hooks or setup steps that perform complex code
+**Script-type native logic** — Hooks or setup steps that perform code
 generation, SDK initialization, or branching logic beyond what `condition`
-expressions support are Capacitor hook territory. These cannot be expressed as
-build actions. Document them as manual steps or suggest creating Capacitor Hooks (out of context of this skill). Simple code insertion (like creating a new code file) can be done with the `code` build action, but is discouraged for complex scenarios.
+expressions support cannot be expressed as build actions. Document them as
+manual steps or suggest Capacitor hooks (out of scope for this skill).
+
+Exception: simple code insertions — adding a source file or replacing a string
+in an existing one — may be expressible with the `code` build action. See
+SKILL.md Generation Guidelines step 4 for constraints and limitations.
 
 ---
 
@@ -121,8 +125,8 @@ present there — they are handled automatically.
 Only create a `manifest` build action for entries that are:
 - Required based on README instructions or source analysis but absent from the
   bundled manifest
-- Conditionally needed depending on app configuration (use a variable +
-  `condition` - See [reference/variables-and-conditions](reference/variables-and-conditions.md))
+- Conditionally needed depending on app configuration — use a variable with a
+  `condition`; see [reference/variables-and-conditions.md](reference/variables-and-conditions.md)
 
 ### Gradle files
 
@@ -182,8 +186,11 @@ CocoaPods layout). Framework imports and API usage are the primary signals for
 | `import HealthKit` / `HKHealthStore` | `NSHealthShareUsageDescription` |
 | `import UserNotifications` / `UNUserNotificationCenter` | `aps-environment` entitlement |
 
-The framework import confirms the capability is used. Usage description text should be left as a variable (See [reference/variables-and-conditions](reference/variables-and-conditions.md)), but its default value
-should be inferred from context if possible (e.g. camera plugin → "Used for scanning").
+The framework import confirms the capability is used. Leave the usage
+description text as a variable so the developer can customize it — see
+[reference/variables-and-conditions.md](reference/variables-and-conditions.md).
+Infer a sensible default from context where possible (e.g. camera plugin →
+`"Used for scanning"`).
 
 ### Entitlements
 
@@ -218,13 +225,18 @@ step 5 in SKILL.md.
 
 | Signal | Build action |
 |--------|--------------|
-| README: AndroidManifest.xml snippet | `manifest` |
+| `src/` / `www/` JavaScript or TypeScript | Skip — web code, not applicable |
+| README: `AndroidManifest.xml` snippet | `manifest` |
 | README: Gradle dependency / plugin | `gradle` |
-| README: Info.plist entry | `plist` |
+| README: `Info.plist` entry | `plist` |
 | README: Entitlements entry | `entitlements` |
 | README: Add framework in Xcode | `frameworks` |
 | README: Xcode build setting | `buildSettings` |
+| README: Android XML resource file | `xml` |
 | README: Add file to project (user-supplied) | Skip — manual step |
+| Plugin-bundled file (not user-supplied) | `copy` — hardcoded path inside plugin bundle only |
+| Existing `after:sync` / `after:update` hook (config-type) | Skip unless migration explicitly requested |
+| Existing hook (script-type) | Skip — retain as Capacitor hook |
 | Bundled `android/AndroidManifest.xml` entries | Skip — Capacitor CLI merges during sync |
 | Plugin's own `android/build.gradle` dependencies | Skip — Capacitor CLI applies during sync |
 | App-level Gradle entry (root or app `build.gradle`) | `gradle` |
@@ -232,6 +244,3 @@ step 5 in SKILL.md.
 | iOS framework import + missing plist usage description | `plist` |
 | Entitlement usage pattern in source | `entitlements` |
 | `Package.swift` / `.podspec` dependencies | Skip — Capacitor CLI handles during sync |
-| Existing `after:sync` / `after:update` hook (config-type) | Skip unless migration explicitly requested |
-| Existing hook (script-type) | Skip — retain as Capacitor hook |
-| `src/` / `www/` JavaScript or TypeScript | Skip — web code, not applicable |
