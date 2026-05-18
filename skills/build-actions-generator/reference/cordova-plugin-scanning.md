@@ -17,8 +17,9 @@ Build-action-relevant elements are always scoped inside a `<platform>` block:
 - Elements inside `<platform name="ios">` → map to **iOS** build actions only
 
 Root-level elements (outside any `<platform>`) do not map to build actions,
-with one exception: root-level `<hook>` elements apply to both platforms and
-are classified in Pass 2.
+with two exceptions: root-level `<hook>` elements apply to both platforms and
+are classified in Pass 2; root-level `<preference>` elements may feed into
+build action variables — see the `<preference>` section.
 
 Elements not listed in this guide do not apply to build actions and can be
 skipped.
@@ -289,7 +290,8 @@ step 5 in SKILL.md.
 | `<edit-config>` targeting `*-Info.plist` | `plist` |
 | `<edit-config>` targeting iOS entitlements file | `entitlements` |
 | `<edit-config>` targeting other iOS plist file | `plist` with `file` |
-| `<edit-config>` targeting `config.xml` or any other file | Skip — same rules as `<config-file>` |
+| `<edit-config>` targeting `config.xml` | Skip — Cordova-specific, no build action equivalent |
+| `<edit-config>` targeting any other file | Skip — silently ignored by Capacitor CLI; assess case by case |
 | `<framework>` (Android plain / `gradleReference`) | Skip — handled by Capacitor CLI during sync |
 | `<framework>` (Android other types, e.g. `type="system"`) | Skip — silently ignored by Capacitor CLI, no build action equivalent |
 | `<framework>` (iOS) | Skip — handled by Capacitor CLI during sync |
