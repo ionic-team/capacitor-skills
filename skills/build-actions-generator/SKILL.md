@@ -232,8 +232,7 @@ plugin:
 - If `input-contract.yaml` exists at the plugin root, read its `hooks` section
   to derive which build actions are required.
 - If the contract is absent or partial, scan the plugin source:
-  - **Cordova plugins:** parse `plugin.xml` for `<config-file>`, `<hook>`, and
-    permission declaration elements.
+  - **Cordova plugins:** parse `plugin.xml` — see **[reference/cordova-plugin-scanning.md](reference/cordova-plugin-scanning.md)** for the full element-to-action mapping and hook classification guide.
   - **Capacitor plugins:** inspect native source files (Java/Kotlin and
     Swift/Objective-C) for declared permissions, capabilities, and third-party
     dependencies.
