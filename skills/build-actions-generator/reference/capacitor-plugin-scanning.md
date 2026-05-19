@@ -137,16 +137,17 @@ Only create a `manifest` build action for entries that are:
 ### Gradle files
 
 The plugin's own `android/build.gradle` dependencies are applied by Capacitor
-CLI during sync. A `gradle` build action is only needed for entries that must go
-into the **app-level** or **root-level** build files — for example:
+CLI during sync. Never generate `gradle` build actions to replicate content
+already in the plugin's own build files. Only generate a `gradle` build action
+when the plugin's README explicitly states that a change to the root or
+app-level `build.gradle` is required as a setup step. Examples of such steps:
 
 - A `maven` repository in the root `allprojects` block
 - A `buildscript classpath` dependency in the root `build.gradle`
 - An `apply plugin` statement in `app/build.gradle`
 
-Check `android/build.gradle` and `android/variables.gradle` to understand what
-the plugin already provides, and cross-reference with any Gradle instructions
-in the README to identify what still needs a build action.
+Check `android/build.gradle` and `android/variables.gradle` to confirm whether
+the plugin already provides the entry before generating a build action for it.
 
 ### Java / Kotlin source
 

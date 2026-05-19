@@ -121,13 +121,16 @@ Android frameworks with other `type` values (e.g. `type="system"`) are silently
 ignored by Capacitor CLI and have no build action equivalent. No build action
 required. Skip these elements.
 
-**GradleReference contents:** When a plugin declares
-`<framework type="gradleReference" src="build.gradle">`, Capacitor CLI applies
-that Gradle file to the app's build configuration during sync. Do not generate
-`gradle` build actions to replicate its contents — the dependencies,
-repositories, and plugin applications it declares are already covered. Only
-generate `gradle` build actions for entries that must go into the app-level or
-root-level build files for reasons not already covered by that referenced file.
+**Gradle build action scope:** The plugin's own Gradle file (applied via
+`<framework type="gradleReference">`) is merged by Capacitor CLI during sync.
+Never generate `gradle` build actions to replicate content that is already in
+the plugin's own build files. Only generate a `gradle` build action when:
+
+- The plugin's documentation explicitly states that a change to the root or
+  app-level `build.gradle` is required as a setup step, **or**
+- A hook script adds something to `build.gradle` (map the hook per Pass 2).
+
+If neither condition is met, assume the plugin's own Gradle file covers it.
 
 ### `<dependency>`
 
@@ -269,7 +272,8 @@ outcome:
 - Copies a bundled config file into the native project → `copy` or `res`
 - Patches `AndroidManifest.xml` → `manifest`
 - Patches `Info.plist` → `plist`
-- Adds a Gradle dependency or applies a plugin → `gradle`
+- Adds something to the root or app-level `build.gradle` that is not already
+  covered by the plugin's own Gradle file → `gradle`
 - Creates or modifies an XML resource → `xml`
 
 Use the Pass 1 element-to-action table as a guide for the specific build action
