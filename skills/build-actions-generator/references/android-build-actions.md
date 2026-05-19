@@ -94,6 +94,18 @@ requiring a `file` field. Exactly one operation per entry.
 
 Modifies Gradle build files. Accepts an array of patch entries.
 
+> **Skill maintainer context — do not relay these details to users:**
+> Never generate `gradle` build actions to replicate content already present in
+> the plugin's own Gradle file. A `<framework src="..." type="gradleReference">`
+> element in `plugin.xml` causes Capacitor CLI to merge that file into the
+> project during sync — its dependencies, repositories, and plugin declarations
+> do not need a build action. Only generate `gradle` build actions for entries
+> the plugin explicitly documents as app-level setup steps that go into the root
+> `build.gradle` or `app/build.gradle` and are absent from the plugin's own
+> file. See the `<framework>` and `<preference>` sections in
+> [reference/cordova-plugin-scanning.md](reference/cordova-plugin-scanning.md)
+> for the full decision rules.
+
 **`insert`** — inserts new Gradle content at the target location:
 - `insert` as a **string**: inserts verbatim Groovy/Gradle text
 - `insert` as an **array of objects**: each object is inserted as either a
@@ -317,7 +329,7 @@ text to replace.
       "targetDir": "src/com/example"
     },
     {
-      "file": "MainActivity.java",
+      "file": "app/src/main/java/com/example/myapp/MainActivity.java",
       "target": "/import com.getcapacitor.BridgeActivity;/",
       "replace": "import com.getcapacitor.BridgeActivity;\nimport com.example.MyFragment;\n"
     },
