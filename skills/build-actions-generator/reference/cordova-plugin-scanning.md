@@ -38,6 +38,13 @@ deletes a value: if that value maps to a non-skip row, making the build action
 conditional is sufficient — the key is never added if the action does not run,
 so no deletion is needed. See the conditional delete pattern in Pass 2.
 
+**Preferences in CLI-handled entries:** When a skip-row entry uses `$PREF_NAME`,
+Capacitor CLI substitutes the preference's `default` value during sync. ODC
+developers cannot set preference values through Capacitor CLI — the default is
+always applied at sync time. Add a variable and a corresponding build action to
+override the CLI-written value after sync. See the `<preference>` section for
+the full variable decision logic.
+
 | `target` value | `parent` | Build action |
 |----------------|----------|--------------|
 | `AndroidManifest.xml` | ends in `application` or `/*` | Skip — handled by Capacitor CLI during sync |
@@ -114,6 +121,14 @@ Android frameworks with other `type` values (e.g. `type="system"`) are silently
 ignored by Capacitor CLI and have no build action equivalent. No build action
 required. Skip these elements.
 
+**GradleReference contents:** When a plugin declares
+`<framework type="gradleReference" src="build.gradle">`, Capacitor CLI applies
+that Gradle file to the app's build configuration during sync. Do not generate
+`gradle` build actions to replicate its contents — the dependencies,
+repositories, and plugin applications it declares are already covered. Only
+generate `gradle` build actions for entries that must go into the app-level or
+root-level build files for reasons not already covered by that referenced file.
+
 ### `<dependency>`
 
 Declares a dependency on another Cordova plugin. In the standard Capacitor CLI,
@@ -157,20 +172,21 @@ three contexts:
 - **Runtime JavaScript code** — the preference is read at app runtime, not at
   build time. Not applicable for build actions; skip it.
 
-If `$PREF_NAME` is not referenced anywhere that results in a build action,
-skip it — do not add an unused variable.
+**Step 2 — add a variable for the preference.** The default rule is: add a
+variable for every preference. A variable with a `default` never causes build
+failures, and it gives ODC developers the flexibility to override in ODC Studio.
 
-**Step 2 — decide whether a build action variable is needed:**
+The only case where a variable adds no value is when `$PREF_NAME` is used
+exclusively in elements that have no direct build action equivalent whatsoever — for
+example, only in `<podspec>` or `config.xml` entries. In that case, no build
+action can reference the variable and it can be omitted.
 
-| Context | `$PREF_NAME` referenced in... | Action |
-|---------|-------------------------------|--------|
-| Any | build-action-required element | Add variable + ensure build action uses `$PREF_NAME` |
-| Cordova plugin kept as-is for MABS | CLI-handled element, default is fixed | Skip — Capacitor CLI substitutes the default during sync |
-| Cordova plugin being converted to a Capacitor plugin | CLI-handled element | Add variable — `plugin.xml` won't exist; build actions are the replacement |
-| Any | nowhere that produces a build action | Skip |
-
-When in doubt, add the variable. A variable with a `default` never causes
-build failures and gives developers the flexibility to override in ODC Studio.
+For CLI-handled elements (e.g. `<config-file target="AndroidManifest.xml"
+parent="/manifest/application">`): Capacitor CLI writes the value using the
+preference default during sync. A build action running after sync can override
+that value. Add the variable and the corresponding build action — the build
+action default should match the preference default so the behaviour is unchanged
+when the developer does not configure it.
 
 **Step 3 — if one or more variables are needed, write them.** A single
 `buildAction.json` can declare multiple variables, one per qualifying
@@ -180,6 +196,12 @@ Map each `<preference name="X" default="Y">` to a variable `X`: use type
 `string` by default, or infer `number`/`boolean` when the default value is
 clearly numeric or boolean. Set `default` to the preference's `default`
 attribute value. Reference with `$X` in build action string values.
+
+**Boolean variables in plist entries:** A `boolean` variable can be referenced
+directly as `"$X"` in a plist entry value — the build actions tool resolves the
+correct plist type. A single entry such as
+`{ "FirebaseAutomaticScreenReportingEnabled": "$X" }` covers both the `true`
+and `false` cases without splitting into two conditional entries.
 
 ```xml
 <preference name="CLIENT_ID" default="" />
@@ -201,6 +223,11 @@ build action mapping.
 ---
 
 ## Pass 2: Hook elements
+
+**Reading hook scripts:** Use the exact `src` path from the `<hook>` element to
+locate and fetch the script — for example,
+`<hook src="hooks/android/setup.js">` is at `hooks/android/setup.js` relative
+to the plugin root. Do not guess alternate locations such as `scripts/`.
 
 Build actions run **after `capacitor sync`**, during the MABS cloud build only,
 and execute **once per build**. This shapes which hooks are candidates:
