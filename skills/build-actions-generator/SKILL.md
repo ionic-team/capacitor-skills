@@ -401,3 +401,7 @@ configuration is required — inferred from the generated actions.>
 ## Examples
 
 See **[reference/examples.md](reference/examples.md)** for complete, realistic `buildAction.json` files.
+
+Before concluding that a hook or element cannot be mapped to a build action,
+check **[reference/common-scenarios.md](reference/common-scenarios.md)** for
+patterns that appear unmappable but have correct build action equivalents.

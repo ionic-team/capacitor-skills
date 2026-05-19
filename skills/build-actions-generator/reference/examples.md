@@ -1,8 +1,8 @@
 # Build Action Examples
 
-This file contains complete, realistic `buildAction.json` examples. It will
-grow to cover common plugin scenarios — see also `reference/common-scenarios.md`
-(planned) for pattern-level guidance.
+This file contains complete, realistic `buildAction.json` examples. For
+pattern-level guidance on recurring or tricky mapping scenarios, see
+[reference/common-scenarios.md](reference/common-scenarios.md).
 
 ---
 

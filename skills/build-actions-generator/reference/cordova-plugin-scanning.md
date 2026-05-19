@@ -206,6 +206,14 @@ correct plist type. A single entry such as
 `{ "FirebaseAutomaticScreenReportingEnabled": "$X" }` covers both the `true`
 and `false` cases without splitting into two conditional entries.
 
+**Do not use `string` type for boolean preferences**, even if the plugin source
+contains a comment about `NSString.boolValue` or stores the value as `"true"` /
+`"false"` strings internally. That convention belongs to the Cordova
+implementation. In build actions, always use `boolean` type — the tool resolves
+the correct plist type automatically. See
+[reference/common-scenarios.md — "Boolean preference written as a plist string"](common-scenarios.md#pattern-boolean-preference-written-as-a-plist-string)
+for the complete pattern.
+
 ```xml
 <preference name="CLIENT_ID" default="" />
 ```
@@ -300,6 +308,9 @@ delete equivalent:
 Note: `plist` has no delete operation. `manifest` and `xml` do support `delete`,
 but prefer the conditional approach above when the value originates from a
 declarative element — it is simpler and avoids ordering dependencies.
+
+See [reference/common-scenarios.md](reference/common-scenarios.md) for concrete
+JSON examples of both patterns.
 
 **Script-type operations → out of scope (Capacitor hook territory):**
 - Manages npm/pod dependencies or runs `pod install`
