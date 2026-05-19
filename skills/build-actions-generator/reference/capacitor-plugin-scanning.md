@@ -22,8 +22,11 @@ entire `src/` and `www/` trees.
 **User-supplied native files** — Build actions cannot accept files as inputs
 from the consuming app. If the plugin's README instructs the developer to place
 a file like `GoogleService-Info.plist` or `google-services.json` into the
-project, that placement cannot be performed by a build action — the consuming
-app must handle it. Document it as a manual step.
+project, that placement cannot be performed by a build action. In ODC,
+developers have no access to the native project, so the ODC-compatible approach
+is for the developer to add the file as an **ODC resource** in ODC Studio
+(Deploy Action: Deploy to Target Directory). Document this as an ODC setup step
+in `## What requires additional setup`.
 
 Exception: if the file is bundled inside the plugin itself (not user-supplied),
 a `copy` build action can place it. See
@@ -33,8 +36,9 @@ constraints (hardcoded paths only; user-supplied paths are not reliable in ODC).
 
 **Script-type native logic** — Hooks or setup steps that perform code
 generation, SDK initialization, or branching logic beyond what `condition`
-expressions support cannot be expressed as build actions. Document them as
-manual steps or suggest Capacitor hooks (out of scope for this skill).
+expressions support cannot be expressed as build actions. In ODC, developers
+have no access to the native project, so a Capacitor hook is the only available
+alternative — document these as Capacitor hooks (out of scope for this skill).
 
 Exception: simple code insertions — adding a source file or replacing a string
 in an existing one — may be expressible with the `code` build action. See
@@ -44,9 +48,11 @@ SKILL.md Generation Guidelines step 4 for constraints and limitations.
 
 ## Pass 1: Plugin documentation
 
-The plugin's `README.md` (and any `docs/` directory) is the most direct signal:
-manual setup instructions the developer must follow before the plugin works.
-These are the primary candidates for build actions.
+The plugin's `README.md` (and any `docs/` directory) is the most direct signal.
+Look for native setup instructions written for standard Capacitor developers who
+have direct native project access — these are the primary candidates for build
+actions, because in ODC those steps must be automated rather than performed
+manually.
 
 Look for these sections:
 
@@ -69,7 +75,7 @@ Look for these sections:
 | Xcode framework to add | `frameworks` |
 | Xcode build setting | `buildSettings` |
 | Android XML resource file | `xml` |
-| "Add this file to your project" (user-supplied) | Skip — document as manual step |
+| "Add this file to your project" (user-supplied) | Skip — document as ODC resource setup step |
 
 For the full schema and examples of each action type, see:
 [reference/android-build-actions.md](reference/android-build-actions.md) |
@@ -213,7 +219,7 @@ action, record:
 - The item (README section, hook name, file reference)
 - The reason it was not mapped (user-supplied file, script-type hook, no build
   action equivalent)
-- The recommended approach (manual step or retain as Capacitor hook)
+- The recommended approach (Capacitor hook for script-type logic; ODC resource for user-supplied files; not supported in ODC for blockers)
 
 This list feeds the `## What requires additional setup` section of the
 generated README and the one-line terminal note. See Generation Guidelines
@@ -233,7 +239,7 @@ step 5 in SKILL.md.
 | README: Add framework in Xcode | `frameworks` |
 | README: Xcode build setting | `buildSettings` |
 | README: Android XML resource file | `xml` |
-| README: Add file to project (user-supplied) | Skip — manual step |
+| README: Add file to project (user-supplied) | Skip — ODC resource setup step |
 | Plugin-bundled file (not user-supplied) | `copy` — hardcoded path inside plugin bundle only |
 | Existing `after:sync` / `after:update` hook (config-type) | Skip unless migration explicitly requested |
 | Existing hook (script-type) | Skip — retain as Capacitor hook |

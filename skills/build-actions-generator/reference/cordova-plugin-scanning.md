@@ -285,20 +285,22 @@ they should be handled. The actual implementation — as Capacitor lifecycle hoo
 (`capacitor:sync:after`, etc.) or `postinstall` npm scripts — is the
 developer's responsibility and outside the scope of build actions.
 
-**Blocker operations → document as a manual step:**
+**Blocker operations → document as not supported in ODC:**
 - Requires user input at runtime
 - Modifies `plugin.xml` at runtime
 - Depends on Cordova-specific internals with no Capacitor equivalent
 
 These cannot be expressed as build actions or Capacitor hooks without
-significant rework.
+significant rework. ODC developers have no access to the native project, so
+there is no manual fallback — these scenarios represent unsupported
+functionality that requires plugin redesign.
 
 ### Tracking unmapped items
 
 For every hook or element that cannot be mapped to a build action, record:
 - The hook type or element name
 - The reason it was not mapped (script-type, blocker, non-applicable timing)
-- The recommended approach (Capacitor hook or manual step)
+- The recommended approach (Capacitor hook for script-type; not supported in ODC for blockers)
 
 This list feeds the `## What requires additional setup` section of the
 generated README and the one-line terminal note. See Generation Guidelines
@@ -337,5 +339,5 @@ step 5 in SKILL.md.
 | `<preference>` | variable — see `<preference>` section in Pass 1 for full analysis |
 | `<hook>` (applicable type, config-type op) | appropriate action — see Pass 2 |
 | `<hook>` (applicable type, script-type op) | out of scope → Capacitor hook |
-| `<hook>` (applicable type, blocker op) | out of scope → manual step |
+| `<hook>` (applicable type, blocker op) | out of scope → not supported in ODC |
 | `<hook>` (non-applicable type) | skip — no equivalent phase in MABS |

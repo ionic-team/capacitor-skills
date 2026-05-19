@@ -328,7 +328,7 @@ configuration is required — inferred from the generated actions.>
 
 | Hook / element | Reason not mapped | Recommended approach |
 |----------------|-------------------|----------------------|
-| `<hook type>` | <why it can't be a build action> | Capacitor hook / manual step |
+| `<hook type>` | <why it can't be a build action> | Capacitor hook |
 
 ## Variables
 
@@ -374,8 +374,10 @@ configuration is required — inferred from the generated actions.>
   `no` if a default exists. Leave Default as `—` when Required is `yes`.
 - The extensibility JSON in `## ODC Setup` should reflect actual variable names
   from the generated JSON, not placeholder `VAR_NAME`.
-- In `## What requires additional setup`, set Recommended approach to
-  `Capacitor hook` for script-type hooks and `Manual step` for blockers.
+- In `## What requires additional setup`, set Recommended approach to:
+  - `Capacitor hook` for script-type hooks — describe concretely what the hook must do
+  - `ODC resource` for user-supplied files — tell the developer to add the file as an ODC resource in ODC Studio (Deploy Action: Deploy to Target Directory)
+  - `Not supported in ODC` for blockers — ODC developers have no access to the native project, so there is no manual fallback; briefly state why rework would be needed
 
 **Terminal output after generating both files:**
 - Do not output the `buildAction.json` contents — the file write already
