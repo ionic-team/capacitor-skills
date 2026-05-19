@@ -151,7 +151,7 @@ At least one of `android` or `ios` must be present under `platforms`.
 
 See **[reference/variables-and-conditions.md](reference/variables-and-conditions.md)** for full syntax and examples.
 
-- **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) the developer sets in ODC Studio. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
+- **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) declared by the plugin developer; consuming apps supply values via the extensibility configuration `parameters` block. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
 - **Usage** — reference with `$VAR_NAME` anywhere in string values: `"android:name": "com.example.$APP_NAME"`
 - **Conditions** — add a `condition` field to any action entry to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
 
@@ -266,7 +266,7 @@ Ask the developer (or infer from context):
 - Filename: camelCase, no spaces (e.g., `buildAction.json`)
 - Only include platforms that have actual actions
 - Use `$VAR_NAME` substitution for developer-controlled values
-- Include a `default` on variables unless the value is genuinely required from the developer — without one, the build fails if the developer doesn't supply the variable in ODC Studio
+- Include a `default` on variables unless the value is genuinely required — without one, the build fails if the consuming app doesn't supply the variable value in the extensibility configuration `parameters`
 - Add `condition` only when an action should be conditionally skipped
 - Prefer `merge` over `inject` in `manifest` to avoid duplicate entries
 - Output valid, well-formatted JSON
