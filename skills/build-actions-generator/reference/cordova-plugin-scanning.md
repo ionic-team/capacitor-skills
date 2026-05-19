@@ -29,6 +29,15 @@ skipped.
 The `target` attribute identifies the file to modify; `parent` is the XPath
 insertion point. Whether a build action is needed depends on both.
 
+**What Capacitor CLI handles vs. build actions:** Entries marked
+*Skip — handled by Capacitor CLI during sync* are the only cases where
+Capacitor CLI writes the value automatically — no build action is needed or
+appropriate. For all other rows, Capacitor CLI does not write the value; the
+build action is the sole mechanism. This matters when a hook conditionally
+deletes a value: if that value maps to a non-skip row, making the build action
+conditional is sufficient — the key is never added if the action does not run,
+so no deletion is needed. See the conditional delete pattern in Pass 2.
+
 | `target` value | `parent` | Build action |
 |----------------|----------|--------------|
 | `AndroidManifest.xml` | ends in `application` or `/*` | Skip — handled by Capacitor CLI during sync |
