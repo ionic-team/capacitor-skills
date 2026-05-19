@@ -362,11 +362,12 @@ configuration is required — inferred from the generated actions.>
 
    Values in `parameters` can be hardcoded literals or extensibility setting references
    (`$extensibilitySettings.SettingName`). Use extensibility settings for any value that
-   should not be hardcoded. To create one: in ODC Studio, right-click **Extensibility
-   Settings** in the context pane → **Add Extensibility Setting**. For sensitive values
-   (API keys, tokens, files with credentials), set **Is Secret** to True — secret settings
-   have no default and must be supplied in ODC Portal before generating a mobile package.
-   Set values in ODC Portal → app → **Mobile distribution** → **Extensibility settings**.
+   consuming apps should be able to configure. The plugin developer creates the settings
+   in ODC Studio: right-click **Extensibility Settings** in the context pane →
+   **Add Extensibility Setting**. For sensitive values (API keys, tokens, files with
+   credentials), set **Is Secret** to True — secret settings have no default and must be
+   supplied in ODC Portal before generating a mobile package. The consuming app then sets
+   values in ODC Portal → app → **Mobile distribution** → **Extensibility settings**.
 
 3. Build in the ODC Portal using MABS 12 or greater:
    - **ODC app:** build the app directly.
