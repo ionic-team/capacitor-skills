@@ -115,7 +115,7 @@ This skill handles **Step 1 only**. Steps 2–4 require manual action.
 | Step | Owner | What |
 |------|-------|------|
 | **1. Generate JSON** | This skill | Create `buildAction.json` with all required platform actions |
-| **2. Upload JSON** | Developer | Add the file to the plugin/library in ODC Studio → Extensibility Configurations tab |
+| **2. Upload JSON** | Developer | Add the file to the plugin/library in ODC Studio → Extensibility tab |
 | **3. Link in Portal** | Developer | Reference the build action in the ODC Portal → Mobile Distribution tab |
 | **4. Publish & test** | Developer | Publish the plugin and test a mobile build using MABS 12 (Capacitor) or later |
 
@@ -154,6 +154,8 @@ See **[reference/variables-and-conditions.md](reference/variables-and-conditions
 - **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) the developer sets in ODC Studio. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
 - **Usage** — reference with `$VAR_NAME` anywhere in string values: `"android:name": "com.example.$APP_NAME"`
 - **Conditions** — add a `condition` field to any action entry to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
+
+> See **[reference/extensibility-configuration.md](reference/extensibility-configuration.md)** for how `parameters` in the extensibility configuration supplies values for variables declared in `buildAction.json`.
 
 ---
 
@@ -358,6 +360,14 @@ configuration is required — inferred from the generated actions.>
    }
    \`\`\`
 
+   Values in `parameters` can be hardcoded literals or extensibility setting references
+   (`$extensibilitySettings.SettingName`). Use extensibility settings for any value that
+   should not be hardcoded. To create one: in ODC Studio, right-click **Extensibility
+   Settings** in the context pane → **Add Extensibility Setting**. For sensitive values
+   (API keys, tokens, files with credentials), set **Is Secret** to True — secret settings
+   have no default and must be supplied in ODC Portal before generating a mobile package.
+   Set values in ODC Portal → app → **Mobile distribution** → **Extensibility settings**.
+
 3. Build in the ODC Portal using MABS 12 or greater:
    - **ODC app:** build the app directly.
    - **ODC Mobile Library (plugin):** consume the library in an ODC app, then
@@ -370,6 +380,7 @@ configuration is required — inferred from the generated actions.>
   mapped to build actions. Include it only when hooks or elements were found
   that could not be mapped.
 - Omit the `## Variables` section entirely if there are no variables.
+- Omit the extensibility settings instructions (the paragraph below the JSON block in step 2 of `## ODC Setup`) if the plugin has no variables — the `parameters` key is absent in that case and the instructions have no context.
 - In the `## Variables` table, set Required to `yes` if there is no default,
   `no` if a default exists. Leave Default as `—` when Required is `yes`.
 - The extensibility JSON in `## ODC Setup` should reflect actual variable names
@@ -378,6 +389,7 @@ configuration is required — inferred from the generated actions.>
   - `Capacitor hook` for script-type hooks — describe concretely what the hook must do
   - `ODC resource` for user-supplied files — tell the developer to add the file as an ODC resource in ODC Studio (Deploy Action: Deploy to Target Directory)
   - `Not supported in ODC` for blockers — ODC developers have no access to the native project, so there is no manual fallback; briefly state why rework would be needed
+- **Extensibility config permissions alternative**: Only mention `pluginConfigurations.permissions` in the README if (a) the developer explicitly asked about extensibility configurations, or (b) every generated build action is exclusively a `manifest` `<uses-permission>` entry and/or a `plist` iOS usage description entry — meaning the entire `buildAction.json` could be replaced by the `permissions` block in the library extensibility configuration. In all other cases omit it; the reference is in [reference/extensibility-configuration.md](reference/extensibility-configuration.md).
 
 **Terminal output after generating both files:**
 - Do not output the `buildAction.json` contents — the file write already
