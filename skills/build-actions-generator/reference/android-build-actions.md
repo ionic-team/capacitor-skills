@@ -329,7 +329,7 @@ text to replace.
       "targetDir": "src/com/example"
     },
     {
-      "file": "MainActivity.java",
+      "file": "app/src/main/java/com/example/myapp/MainActivity.java",
       "target": "/import com.getcapacitor.BridgeActivity;/",
       "replace": "import com.getcapacitor.BridgeActivity;\nimport com.example.MyFragment;\n"
     },

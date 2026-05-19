@@ -153,9 +153,9 @@ See **[reference/variables-and-conditions.md](reference/variables-and-conditions
 
 - **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) declared by the plugin developer; consuming apps supply values via the extensibility configuration `parameters` block. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
 - **Usage** — reference with `$VAR_NAME` anywhere in string values: `"android:name": "com.example.$APP_NAME"`
-- **Conditions** — add a `condition` field to any action entry to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
+- **Conditions** — add a `condition` field to any action entry (except `displayName`, `productName`, and `appName`) to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
 
-> See **[reference/extensibility-configuration.md](reference/extensibility-configuration.md)** for how `parameters` in the extensibility configuration supplies values for variables declared in `buildAction.json`.
+> See **[reference/extensibility-configuration.md](reference/extensibility-configuration.md)** for how `parameters` in the extensibility configuration supplies values for variables declared in `buildAction.json`. When a library and its consuming app both define build actions, the library's runs first.
 
 ---
 
@@ -266,7 +266,7 @@ Ask the developer (or infer from context):
 - Filename: camelCase, no spaces (e.g., `buildAction.json`)
 - Only include platforms that have actual actions
 - Use `$VAR_NAME` substitution for developer-controlled values
-- Include a `default` on variables unless the value is genuinely required — without one, the build fails if the consuming app doesn't supply the variable value in the extensibility configuration `parameters`
+- Include a `default` on variables unless the value is genuinely required — without one, the build fails if neither the plugin library nor the consuming app supplies the variable value in the extensibility configuration `parameters`
 - Add `condition` only when an action should be conditionally skipped
 - Prefer `merge` over `inject` in `manifest` to avoid duplicate entries
 - Output valid, well-formatted JSON

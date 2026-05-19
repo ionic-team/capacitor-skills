@@ -39,7 +39,7 @@ Extensibility settings are named, build-time values defined in ODC Studio and ma
 In ODC Studio, open the app or library **Extensibility** tab. In the context pane:
 
 1. Right-click **Extensibility Settings** folder → **Add Extensibility Setting**
-2. Set the **Name**, **Description**, and **Data Type** (examples are text, boolean, integer, decimal, binary)
+2. Set the **Name**, **Description**, and **Data Type** (examples are Text, Boolean, Integer, Decimal, Binary)
 3. In case of a sensitive value like an API Key or Token, or a file containing sensitive data, set **Is Secret** to True. This makes it so that the setting value is masked and not readable in ODC Portal. If not a sensitive value (e.g. a usage description for plist), leave it as False. Note that secret settings cannot have a default value — the developer must explicitly supply the value in ODC Portal before generating a mobile package; there is no fallback.
 4. Reference the setting in the extensibility JSON as `$extensibilitySettings.SettingName`
 

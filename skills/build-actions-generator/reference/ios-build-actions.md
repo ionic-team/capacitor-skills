@@ -2,6 +2,8 @@
 <!-- Raw (for sync): https://raw.githubusercontent.com/OutSystems/docs-odc/main/src/eap/building-apps/mobile/build-actions-iOS.md -->
 <!-- Last verified: 2026-05-18 -->
 
+# iOS Build Actions Reference
+
 All iOS build action types supported in the ODC build actions JSON schema.
 All actions go under `platforms.ios` in your `buildAction.json`. The full
 wrapper structure is always required:
@@ -193,7 +195,7 @@ object.
 | `NSCameraUsageDescription` | Camera access |
 | `NSMicrophoneUsageDescription` | Microphone access |
 | `NSLocationWhenInUseUsageDescription` | Location (foreground) |
-| `NSLocationAlwaysUsageDescription` | Location (background) |
+| `NSLocationAlwaysAndWhenInUseUsageDescription` | Location (background) |
 | `NSBluetoothAlwaysUsageDescription` | Bluetooth LE |
 | `NSFaceIDUsageDescription` | Face ID / biometrics |
 | `NSContactsUsageDescription` | Contacts access |
