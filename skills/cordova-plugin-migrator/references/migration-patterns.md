@@ -450,7 +450,7 @@ error strings to `callbackContext.error(...)`. When migrating:
 1. Group the original error strings into the four canonical buckets.
 2. If a single bucket is too coarse for callers (e.g., `OPERATION_FAILED`
    covers both "network timeout" and "card declined"), add a structured
-   `details.cause` field — never invent a new top-level code.
+   `details.cause` field, never invent a new top-level code.
 3. Preserve the original Cordova error string under `details.cordovaMessage`
    for backwards-compatibility logs.
 

@@ -98,7 +98,7 @@ Capabilities" entries, not to consumer-facing privacy strings.
 - Document the **exact Xcode capability** the user must enable (Apple Pay,
   Push Notifications, App Groups, etc.) in `MIGRATION.md`.
 - Document the **entitlement value** (merchant ID, app group identifier).
-- Record under `migration.warnings`. Not a blocker — but easy to miss
+- Record under `migration.warnings`. Not a blocker, but easy to miss
   because the consumer must toggle a capability in Xcode by hand.
 
 **Example documentation block:**

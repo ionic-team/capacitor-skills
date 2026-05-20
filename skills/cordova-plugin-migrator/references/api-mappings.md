@@ -74,16 +74,16 @@ JSON string and the native handler parses it.
 
 **Cordova:**
 ```javascript
-exports.setDetails = function(paymentDetails, accessToken, success, error) {
-    exec(success, error, 'OSPayments', 'setDetails',
-         [JSON.stringify(paymentDetails), accessToken]);
+exports.submitOrder = function(orderDetails, accessToken, success, error) {
+    exec(success, error, 'MyPlugin', 'submitOrder',
+         [JSON.stringify(orderDetails), accessToken]);
 };
 ```
 
 **Native handler (Android Kotlin):**
 ```kotlin
-private fun setDetailsAndTriggerPayment(args: JSONArray) {
-    val details = gson.fromJson(args.getString(0), PaymentDetails::class.java)
+private fun submitOrder(args: JSONArray) {
+    val details = gson.fromJson(args.getString(0), OrderDetails::class.java)
     // ...
 }
 ```
@@ -92,7 +92,7 @@ private fun setDetailsAndTriggerPayment(args: JSONArray) {
 ```swift
 guard let json = command.argument(at: 0) as? String,
       let data = json.data(using: .utf8),
-      let details = try? JSONDecoder().decode(PaymentDetails.self, from: data) else { return }
+      let details = try? JSONDecoder().decode(OrderDetails.self, from: data) else { return }
 ```
 
 **Capacitor migration:** Replace the stringified blob with a strongly-typed
@@ -100,27 +100,26 @@ TypeScript interface. Read the native parsing site to capture the schema.
 
 ```typescript
 // src/definitions.ts
-export interface PaymentDetails {
+export interface OrderDetails {
   amount: number;
   currency: string;
-  merchant: { id: string; name: string };
-  items: PaymentItem[];
+  // ... whatever fields the native data class actually decodes
 }
 
-export interface OSPaymentsPlugin {
-  setDetails(options: {
-    paymentDetails: PaymentDetails;
+export interface MyPlugin {
+  submitOrder(options: {
+    orderDetails: OrderDetails;
     accessToken?: string;
-  }): Promise<PaymentResult>;
+  }): Promise<OrderResult>;
 }
 ```
 
 ```kotlin
-// Android — Capacitor receives the typed object directly
+// Android. Capacitor receives the typed object directly.
 @PluginMethod
-fun setDetails(call: PluginCall) {
-    val details = call.getObject("paymentDetails")
-    // map JSObject → PaymentDetails data class
+fun submitOrder(call: PluginCall) {
+    val details = call.getObject("orderDetails")
+    // map JSObject -> OrderDetails data class
 }
 ```
 
@@ -129,11 +128,11 @@ fun setDetails(call: PluginCall) {
 ```yaml
 migration:
   cordova_to_capacitor_map:
-    - cordova: "OSPayments.setDetails(JSON.stringify(details), token, ok, err)"
-      capacitor: "OSPayments.setDetails({ paymentDetails, accessToken })"
+    - cordova: "MyPlugin.submitOrder(JSON.stringify(details), token, ok, err)"
+      capacitor: "MyPlugin.submitOrder({ orderDetails, accessToken })"
 api:
   types:
-    - name: PaymentDetails
+    - name: OrderDetails
       kind: interface
       fields: [...]                # exact shape from the native parsing site
 ```

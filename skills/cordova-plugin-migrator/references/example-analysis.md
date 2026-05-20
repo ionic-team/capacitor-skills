@@ -311,27 +311,35 @@ For a plugin with hooks, the analysis would also include:
 
 ---
 
-### Hook 2: Dependency Installer (after_plugin_install)
+### Hook 2: Setup Instructions Banner (after_plugin_install)
 **Location:** plugin.xml:45
-**Script:** scripts/installNativeDeps.js
-**Purpose:** Installs CocoaPods dependencies for iOS
+**Script:** scripts/printSetupInstructions.js
+**Purpose:** Prints the Info.plist privacy strings, AndroidManifest entries,
+and any Apple Pay / capability toggles the consumer needs to add to their
+host app, so they see the instructions immediately after install instead
+of having to find them in the README.
 
-**Migration Strategy:** ⚠️ **Tier 2 - Custom Script**
+**Migration Strategy:** ⚠️ **Tier 2 - npm `postinstall`**
 
 **Recommended Approach:**
 \`\`\`json
 // Add to plugin's package.json
 {
   "scripts": {
-    "postinstall": "node scripts/installNativeDeps.js && npx cap sync ios"
+    "postinstall": "node scripts/printSetupInstructions.js"
   }
 }
 \`\`\`
 
 **Implementation Notes:**
-- Script runs automatically after `npm install`
-- Users may need to run `pod install` manually if postinstall fails
-- Document manual steps in README as fallback
+- Runs automatically after `npm install` on the plugin package. Prints
+  to stdout, no side effects.
+- Do **not** use `postinstall` to run `pod install`, `npx cap sync`, or
+  anything that mutates the host app. Those are the host app's lifecycle,
+  not the plugin's. (CocoaPods is the consumer's iOS step regardless, and
+  Capacitor 8 defaults to SPM anyway.)
+- Skip the banner if the same content is already in the plugin's README
+  and a `MIGRATION.md` snippet. Duplicated instructions get out of sync.
 
 ---
 
@@ -416,8 +424,8 @@ dependencies:
     spm: []
     # Only frameworks explicitly declared in plugin.xml. UIKit/AVFoundation/
     # Photos are imported in source but not <framework>-declared, so they
-    # stay out of the YAML — Xcode auto-links them.
-    # ImageIO is declared weak="true" in plugin.xml — see migration.notes.
+    # stay out of the YAML, Xcode auto-links them.
+    # ImageIO is declared weak="true" in plugin.xml, see migration.notes.
     system_frameworks: []
   android:
     gradle:
@@ -430,10 +438,8 @@ migration:
   output_mode: side_by_side
   blockers: []
   warnings:
-    - "plugin.xml mutates AndroidManifest with android.permission.CAMERA — document manual setup"
-    - "plugin.xml mutates Info.plist with NSCameraUsageDescription — document manual setup"
-    - "AndroidManifest <queries> intent filters (IMAGE_CAPTURE, GET_CONTENT, PICK, CROP) required for Android 11+ package visibility — document manual setup"
-    - "FileProvider authority ${applicationId}.cordova.plugin.camera.provider requires consumer to register provider in AndroidManifest"
+    - "plugin.xml mutates Info.plist with NSCameraUsageDescription / NSPhotoLibraryUsageDescription. Consumer must add these to the host app's Info.plist; Apple requires privacy strings on the host plist."
+    - "FileProvider authority is plugin-defined. Pick something unique to the Capacitor plugin (it does not have to mirror the Cordova authority) and document it for consumers who need to handle the URI."
   language_modernization:
     ios:     { from: objective_c, to: swift }
     android: { from: java,        to: kotlin }
@@ -442,10 +448,8 @@ migration:
     android: [src/android/CameraLauncher.java]
     js:      [www/Camera.js]
   hooks:
-    tier_1:
-      - { name: copyResources, src: scripts/copyResources.js, type: after_prepare, purpose: "Copy custom fonts/assets" }
-    tier_2:
-      - { name: installNativeDeps, src: scripts/installNativeDeps.js, type: after_plugin_install, purpose: "Install CocoaPods" }
+    tier_1: []
+    tier_2: []
     tier_3: []
   cordova_to_capacitor_map:
     - cordova: "navigator.camera.getPicture(success, error, options)"
@@ -453,10 +457,10 @@ migration:
     - cordova: "navigator.camera.cleanup(success, error)"
       capacitor: "Camera.cleanup()"
   notes:
-    - "Mirrors @capacitor/camera v6.x definitions.ts (CameraResultType, CameraSource enum casing)"
-    - "iOS Info.plist keys required by consumer: NSCameraUsageDescription, NSPhotoLibraryUsageDescription"
-    - "Android manifest permission required by consumer: android.permission.CAMERA"
-    - "iOS weak-link: ImageIO.framework — generator should emit s.weak_framework = 'ImageIO' in the podspec"
+    - "Mirrors @capacitor/camera definitions.ts (CameraResultType, CameraSource enum casing). Pin the version actually read at generation time in migration.notes once you've picked it."
+    - "Android manifest entries can live in the plugin's own android/src/main/AndroidManifest.xml. Gradle's manifest merger applies them to the host app. The <queries> intent filters (IMAGE_CAPTURE, GET_CONTENT, PICK, CROP) and the FileProvider <provider> declaration are good candidates. The CAMERA permission is a plugin-author choice: declare it in the plugin manifest to always request it, or omit it and rely on the system camera intent's own permission flow instead, so consumers who only use the gallery never see a CAMERA prompt. Either way, the consumer takes no Android-side action."
+    - "iOS Info.plist privacy strings (NSCameraUsageDescription, NSPhotoLibraryUsageDescription) live on the host app's Info.plist. Apple does not pick up plugin-side plist entries, so document the snippet in MIGRATION.md."
+    - "iOS frameworks (weak-linked SwiftUICore, etc.) belong in the plugin's own podspec via s.weak_framework, not the consumer's Podfile."
 ```
 
 ## Phase 10 Checkpoint Message
