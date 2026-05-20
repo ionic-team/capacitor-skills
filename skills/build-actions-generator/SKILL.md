@@ -20,25 +20,8 @@ metadata:
 
 # ODC Build Actions Generator
 
-Generates a correct `buildAction.json` file for OutSystems Developer Cloud
-(ODC) Mobile Libraries (Capacitor and Cordova plugins) and ODC apps. The JSON
-file drives the native mobile build process for Capacitor-based apps targeting
-Android and iOS via MABS 12 or later.
+Generates `buildAction.json` for ODC Mobile Libraries (Capacitor and Cordova plugins) and ODC apps targeting Android and iOS via MABS 12+.
 
-## Contents
-
-- [When to Use](#when-to-use)
-- [What Are Build Actions](#what-are-build-actions)
-- [Invocation & Input Signals](#invocation--input-signals)
-- [End-to-End Process](#end-to-end-process)
-- [JSON File Structure](#json-file-structure)
-- [Variables & Conditions](#variables--conditions) *(see reference/variables-and-conditions.md)*
-- [Android Actions](#android-actions)
-- [iOS Actions](#ios-actions)
-- [Generation Guidelines](#generation-guidelines)
-- [Complete Example](#complete-example)
-
----
 
 ## When to Use
 
@@ -60,51 +43,6 @@ Android and iOS via MABS 12 or later.
 - Cordova app builds, O11 builds, or MABS versions prior to 12 — build actions only apply to Capacitor apps on ODC (MABS 12+).
 - App-level build configuration that lives outside the build action JSON.
 - Publishing or testing the plugin (Step 4 — developer responsibility).
-
----
-
-## What Are Build Actions
-
-Build actions are JSON-defined transformations applied to the native Capacitor
-project **after** `capacitor sync`, during the ODC mobile build. They allow
-plugins and libraries to automatically:
-
-- Modify `AndroidManifest.xml` (permissions, attributes, XML injection)
-- Patch Gradle files (dependencies, build types)
-- Update `Info.plist` (URL schemes, usage descriptions, flags)
-- Set entitlements (push notifications, app groups, etc.)
-- Inject or replace native code snippets
-
-A single JSON file covers **both platforms**. At least one of `android` or
-`ios` must be present under `platforms`.
-
-Build actions are an **ODC-specific mechanism** — they have no effect in
-standalone Capacitor apps outside of ODC.
-
-This skill is a **primitive** designed to compose downstream of
-`capacitor-plugin-generator` and `cordova-plugin-converter`, so generated or
-converted plugins ship with their build configuration already in place.
-
----
-
-## Invocation & Input Signals
-
-The skill accepts a Capacitor or Cordova plugin as input and writes output to
-a `build-actions/` folder at the plugin root.
-
-**Invocation modes:**
-
-- **Path argument** — given a plugin path, writes to `<path>/build-actions/`
-- **Current directory** — when invoked inside a plugin directory, writes to `./build-actions/`
-
-**Input signal priority:**
-
-1. **`input-contract.yaml` (preferred)** — If present at the plugin root, read
-   its `hooks` section to derive which build actions are required.
-2. **Plugin source scanning (fallback)** — When the contract is absent or
-   partial, scan the plugin source for native requirement signals:
-   - Cordova plugins: parse `plugin.xml` for `<config-file>`, `<hook>`, and permission elements
-   - Capacitor plugins: scan plugin documentation, package.json, and native source files — see **[reference/capacitor-plugin-scanning.md](reference/capacitor-plugin-scanning.md)**
 
 ---
 
@@ -218,7 +156,7 @@ Quick reference (shown under `platforms.ios` — always wrap in `{ "platforms": 
   "entitlements": { "replace": false, "entries": [ { "aps-environment": "production" } ] },
   "frameworks":   [ { "name": "AudioToolbox.framework" } ],
   "copy":         [ { "src": "...", "dest": "..." } ],
-  "code":         [ { "file": "App/AppDelegate.swift", "patchFile": "patches/..." } ]
+  "code":         [ { "file": "App/AppDelegate.swift", "target": "/import Capacitor/", "replace": "..." } ]
 }
 ```
 
@@ -228,16 +166,13 @@ Quick reference (shown under `platforms.ios` — always wrap in `{ "platforms": 
 
 ### 1. Read plugin input signals
 
-Before asking the developer any questions, check for existing signals in the
-plugin:
+Plugin root is the path argument if one was given, otherwise the current directory. Before asking the developer any questions, check for existing signals in the plugin:
 
 - If `input-contract.yaml` exists at the plugin root, read its `hooks` section
   to derive which build actions are required.
 - If the contract is absent or partial, scan the plugin source:
   - **Cordova plugins:** parse `plugin.xml` — see **[reference/cordova-plugin-scanning.md](reference/cordova-plugin-scanning.md)** for the full element-to-action mapping and hook classification guide.
-  - **Capacitor plugins:** inspect native source files (Java/Kotlin and
-    Swift/Objective-C) for declared permissions, capabilities, and third-party
-    dependencies.
+  - **Capacitor plugins:** scan plugin documentation, `package.json`, and native source files (Java/Kotlin and Swift/Objective-C) — see **[reference/capacitor-plugin-scanning.md](reference/capacitor-plugin-scanning.md)** for the full scanning guide.
 
 ### 2. Gather requirements
 
@@ -261,6 +196,8 @@ Ask the developer (or infer from context):
 | Custom display name | — | `displayName` |
 | Custom native code | `code` inject/replace | `code` inject/replace |
 
+> Before concluding that a hook or element cannot be mapped to a build action, check **[reference/common-scenarios.md](reference/common-scenarios.md)** for patterns that appear unmappable but have correct build action equivalents.
+
 ### 4. Generate the JSON
 
 - Filename: camelCase, no spaces (e.g., `buildAction.json`)
@@ -277,12 +214,11 @@ Ask the developer (or infer from context):
 - **Prefer config-level actions over `code`** — `manifest`, `gradle`, `plist`,
   `xml`, and `entitlements` cover most native requirements without touching
   source files. Only generate a `code` action when no config-level alternative
-  exists. If you do, use `file`+`target`+`replace`; never use `patchFile`.
-- **Never generate `code` with `patchFile`** — this variant is unreliable in ODC
-  builds. If the change cannot be expressed as a simple string replacement,
-  briefly tell the user the approach is not reliable in ODC and suggest a
-  Capacitor hook as the alternative (out of scope for this skill). Do not
-  explain ODC internals.
+  exists. If you do, use `file`+`target`+`replace`; never use `patchFile` — it
+  is unreliable in ODC builds. If the change cannot be expressed as a simple
+  string replacement, briefly tell the user the approach is not reliable in ODC
+  and suggest a Capacitor hook as the alternative (out of scope for this skill).
+  Do not explain ODC internals.
 - **Avoid `tar` and `copy` when the source file is user-supplied at runtime** —
   these actions are only reliable with hardcoded paths inside the plugin bundle
   or external URLs. If the use case requires user-provided files, briefly tell
@@ -409,10 +345,3 @@ configuration is required — inferred from the generated actions.>
   standalone Capacitor apps.
 - Do not repeat the ODC setup steps in the terminal.
 
----
-
-## Examples
-
-Before concluding that a hook or element cannot be mapped to a build action,
-check **[reference/common-scenarios.md](reference/common-scenarios.md)** for
-patterns that appear unmappable but have correct build action equivalents.
