@@ -19,6 +19,85 @@ This reference provides detailed guidance on migrating Cordova plugin hooks to C
 
 When analyzing a Cordova plugin with hooks, classify each hook into one of three tiers to determine the best migration path:
 
+### Hybrid Plugin Detection (Run This First)
+
+Before classifying hooks, open `package.json`. If you find any of these
+script keys, the plugin is **hybrid**, it already supports Capacitor
+alongside Cordova:
+
+```json
+{
+  "scripts": {
+    "capacitor:update:after": "node hooks/installRepo.js",
+    "capacitor:sync:after": "node hooks/copyPreferences.js"
+  }
+}
+```
+
+Hybrid hook keys to look for:
+
+- `capacitor:sync:before`, `capacitor:sync:after`
+- `capacitor:copy:before`, `capacitor:copy:after`
+- `capacitor:update:before`, `capacitor:update:after`
+
+When a plugin is hybrid:
+
+1. Record each existing `capacitor:*` script as a Tier 1 hook with status
+   `already_converted`.
+2. Read each referenced script. Capacitor hook scripts typically use
+   `process.env.CAPACITOR_PLATFORM_NAME` and `process.env.CAPACITOR_ROOT_DIR`
+   to locate the host app's native projects.
+3. For each `<hook>` element in `plugin.xml`, check whether the existing
+   Capacitor script already covers it. If so, mark the Cordova hook
+   `superseded_by: <capacitor script>` in your notes. If not, classify it
+   normally below.
+4. Ask the user before rewriting an existing Capacitor script. The official
+   Cordova plugin team may have already done the work; do not re-derive it.
+
+Example handoff fragment for a hybrid plugin:
+
+```yaml
+migration:
+  hooks:
+    tier_1:
+      - name: capacitorCopyPreferences
+        src: hooks/capacitorCopyPreferences.js
+        type: capacitor:sync:after
+        purpose: Copy Apple Pay / Google Pay preferences from JSON config into native projects
+        status: already_converted
+      - name: insertAzureRepository
+        src: hooks/insert_azure_repository.js
+        type: capacitor:update:after
+        purpose: Add Azure DevOps Maven repository to root build.gradle
+        status: already_converted
+    tier_2: []
+    tier_3: []
+```
+
+### Decision guide: `<preference>`-driven plist / manifest mutations
+
+A common Cordova pattern: `<preference name="API_KEY" default="...">`
+combined with `<config-file target="*-Info.plist">` (or
+`AndroidManifest.xml`) entries that substitute the preference into the
+host app's native config at install time. The migrator routes these
+based on **who supplies the value** and **what kind of mutation** it is:
+
+| Cordova pattern | Capacitor destination | Why |
+| --- | --- | --- |
+| `<preference>` + `<config-file>` with **same value for every consumer** (e.g., a fixed usage description string, an enabled-by-default capability) | **Plugin's own AndroidManifest / podspec / Info.plist contribution** | Static, plugin-owned. Manifest merger / Capacitor sync handles it. |
+| `<preference>` + `<config-file>` with **consumer-supplied value** that the plugin reads at runtime (API keys, merchant IDs, gateway IDs) | **Runtime config JSON file** consumed by a Tier 1 `capacitor:sync:after` script | Keeps per-consumer values out of the native projects entirely; reuse any existing hybrid script from the Cordova plugin. |
+| `<preference>` + `<config-file>` with **consumer-supplied value** that must land in a static plist key the OS reads (e.g., Apple Pay merchant entitlement) | **Host app's native configuration** | Apple / Google require the static entry. For ODC consumers the downstream `build-actions-generator` skill emits the entry into `build-actions/`; for npm-only consumers, document a manual setup snippet in `MIGRATION.md`. |
+| `<preference>` that pins a build-time version (`ANDROIDX_CORE_VERSION`) referenced inside the plugin's own `build.gradle` / `.podspec` | **Plugin's own gradle / podspec**, pin the resolved version literally | Build-time only; consumer never sees it. |
+| Cordova hook **removes** a preference from a plist file after a previous step added it | **Runtime config JSON file**, not Build Actions | Build Actions does not have an operation to remove plist properties, only set / merge. If you can't restructure to avoid the remove step, fall back to a `capacitor:sync:after` script. |
+
+The migrator does not emit Build Actions configuration itself. When a
+value genuinely needs to land on the host app's static config, surface
+it under `migration.notes` with the exact target key and value so the
+reviewer (or a downstream skill) can apply it. Default routing should
+prefer the runtime-config JSON pattern wherever possible, since it
+avoids per-consumer Build Actions forks and works identically on ODC
+and npm-only deployments.
+
 ### Tier 1: Capacitor Plugin Hooks (Preferred) ✅
 
 **When to Use:**
@@ -27,13 +106,16 @@ When analyzing a Cordova plugin with hooks, classify each hook into one of three
 - Hook runs build preparation tasks
 - Hook behavior fits Capacitor's sync/copy/update lifecycle
 
-**Available Capacitor Hooks:**
-- `capacitor:sync:start` - Before syncing native projects
-- `capacitor:sync:end` - After syncing native projects
-- `capacitor:copy:start` - Before copying web assets
-- `capacitor:copy:end` - After copying web assets
-- `capacitor:update:start` - Before updating native projects
-- `capacitor:update:end` - After updating native projects
+**Available Capacitor Plugin Hooks (npm scripts in plugin `package.json`):**
+- `capacitor:sync:before` / `capacitor:sync:after`, wraps `npx cap sync`
+- `capacitor:copy:before` / `capacitor:copy:after`, wraps `npx cap copy`
+- `capacitor:update:before` / `capacitor:update:after`, wraps `npx cap update`
+- `capacitor:android:add:before` / `capacitor:android:add:after`
+- `capacitor:ios:add:before` / `capacitor:ios:add:after`
+
+(These are npm scripts declared in the plugin's `package.json`, not in
+the host app's `capacitor.config.json`. The Capacitor CLI discovers them
+automatically when it runs `cap sync` / `cap copy` / `cap update`.)
 
 **Example Conversion:**
 ```xml
@@ -41,29 +123,101 @@ When analyzing a Cordova plugin with hooks, classify each hook into one of three
 <hook type="after_prepare" src="scripts/modifyConfig.js" />
 ```
 
-**Capacitor Equivalent:**
+**Capacitor Equivalent (plugin's `package.json`):**
 ```json
-// capacitor.config.json (document in plugin README)
 {
-  "hooks": {
-    "capacitor:sync:end": "node scripts/modifyConfig.js"
+  "scripts": {
+    "capacitor:sync:after": "node scripts/modifyConfig.js"
   }
 }
 ```
 
+### Hook Script Rewriting, Cordova `context` → Capacitor `process.env.*`
+
+The hook lifecycle hook-up is half the work; the **script content** also has
+to change. Cordova hook scripts receive a `context` object as their first
+argument:
+
+```js
+// Cordova hook script
+module.exports = function (context) {
+    const opts = context.opts;
+    const cordovaRoot = opts.projectRoot;
+    const platform = opts.cordova.platforms[0];        // 'ios' or 'android'
+    const pluginInfo = opts.plugin.pluginInfo;
+    const platformDir = path.join(cordovaRoot, 'platforms', platform);
+    // ...
+};
+```
+
+Capacitor's plugin hooks (npm scripts under `scripts.capacitor:*:*`) run
+as ordinary npm scripts with no argument. Context comes through environment
+variables exported by the Capacitor CLI:
+
+```js
+// Capacitor hook script (equivalent)
+const projectRoot = process.env.CAPACITOR_ROOT_DIR;     // host app root
+const platform = process.env.CAPACITOR_PLATFORM_NAME;   // 'ios' | 'android'
+const pluginDir = process.env.CAPACITOR_PLUGIN_DIR;     // when set, path of the plugin module
+const platformDir = path.join(projectRoot, platform === 'ios' ? 'ios/App' : 'android');
+```
+
+Translation rules when rewriting a hook script:
+
+| Cordova `context.opts.*` | Capacitor equivalent |
+| --- | --- |
+| `opts.projectRoot` | `process.env.CAPACITOR_ROOT_DIR` |
+| `opts.cordova.platforms[]` | `process.env.CAPACITOR_PLATFORM_NAME` (one platform per invocation) |
+| `opts.plugin.pluginInfo` | Read the plugin's own `package.json` directly (`require('./package.json')`) |
+| `path.join(opts.projectRoot, 'platforms/ios')` | `path.join(process.env.CAPACITOR_ROOT_DIR, 'ios/App')` |
+| `path.join(opts.projectRoot, 'platforms/android')` | `path.join(process.env.CAPACITOR_ROOT_DIR, 'android')` |
+| `cordovaCommon`, `cordova-common` modules | Drop the dependency, Capacitor scripts use plain `fs` / `path`. |
+
+Hybrid plugins that already ship a `capacitor:sync:after` script use
+this pattern: the script reads `CAPACITOR_ROOT_DIR` and
+`CAPACITOR_PLATFORM_NAME` directly, with no `cordova-common` dependency
+and no `context` argument. If the Cordova plugin you're migrating
+already has one of those scripts, read it first; it's the working
+template for whatever rewrite the other `<hook>` entries need.
+
+Rewriting safety:
+
+- If the script invokes Cordova-only CLI commands (`cordova-lib`,
+  `cordova prepare`, plugin.xml mutation), it cannot be rewritten, that's
+  a **Tier 3 blocker**, not Tier 1.
+- Path swaps like `platforms/ios → ios/App` are exact; Capacitor sync
+  copies into `<host>/ios/App` and `<host>/android` consistently.
+- The Capacitor CLI invokes the script once per platform, so don't loop
+  over platforms internally, branch on `process.env.CAPACITOR_PLATFORM_NAME`.
+
 ### Tier 2: Custom Scripts (Fallback) ⚠️
 
 **When to Use:**
-- Hook performs one-time installation tasks
-- Hook installs native dependencies
-- Hook can be converted to npm lifecycle scripts
-- Hook behavior can be documented as manual steps
+- Hook prints setup instructions, version notes, or links the consumer
+  should see right after install (the most common real-world case).
+- Hook performs a one-time task **scoped to the plugin package itself**:
+  generating files inside `node_modules`, validating peer dependencies,
+  caching a fetched schema, etc.
+- Hook can be converted to an npm lifecycle script (`postinstall`,
+  `preuninstall`) that runs against the plugin package, not the host app.
 
-**npm Lifecycle Script Approach:**
+**Do NOT use Tier 2 for:**
+- Installing CocoaPods (`pod install`). That's a consumer-side step, run
+  against the host app's `ios/App/Podfile`. Capacitor 8 defaults to SPM,
+  so many consumers won't run `pod install` at all.
+- Running `npx cap sync` from the plugin's `postinstall`. Sync runs
+  against the host app on demand; the plugin should never trigger it.
+- Mutating the host app's native projects in any way. The consumer owns
+  those files.
+- Network downloads that the consumer's CI may block. If the asset is
+  required at runtime, bundle it in the npm package or fetch it lazily
+  from the runtime code.
+
+**npm Lifecycle Script Approach (plugin-side only):**
 
 ```xml
-<!-- Cordova hook that installs dependencies -->
-<hook type="after_plugin_install" src="scripts/installDeps.js" />
+<!-- Cordova hook that printed setup instructions after install -->
+<hook type="after_plugin_install" src="scripts/printSetupInstructions.js" />
 ```
 
 **Capacitor Equivalent:**
@@ -71,7 +225,7 @@ When analyzing a Cordova plugin with hooks, classify each hook into one of three
 // package.json (in the plugin)
 {
   "scripts": {
-    "postinstall": "node scripts/installDeps.js"
+    "postinstall": "node scripts/printSetupInstructions.js"
   }
 }
 ```
@@ -154,8 +308,8 @@ This script configures native project settings required for the plugin to functi
 |-------------------|---------|---------------------|----------------|
 | `before_plugin_install` | Pre-install validation | ❌ Not supported | **Tier 2/3**: Document prerequisites or flag as blocker |
 | `after_plugin_install` | Post-install setup | ✅ npm `postinstall` | **Tier 2**: Use `postinstall` script in package.json |
-| `before_prepare` | Pre-build preparation | ✅ `capacitor:sync:start` | **Tier 1**: Use Capacitor sync hook |
-| `after_prepare` | Post-build modifications | ✅ `capacitor:sync:end` | **Tier 1**: Use Capacitor sync hook |
+| `before_prepare` | Pre-build preparation | ✅ `capacitor:sync:before` | **Tier 1**: Use Capacitor sync hook |
+| `after_prepare` | Post-build modifications | ✅ `capacitor:sync:after` | **Tier 1**: Use Capacitor sync hook |
 | `before_build` | Pre-compilation tasks | ⚠️ Platform-specific | **Tier 2**: Xcode build phase / Gradle task |
 | `after_build` | Post-compilation tasks | ⚠️ Platform-specific | **Tier 2**: Xcode build phase / Gradle task |
 | `before_plugin_uninstall` | Cleanup before removal | ✅ npm `preuninstall` | **Tier 2**: Use `preuninstall` script |
@@ -209,7 +363,7 @@ When hooks are detected, include this in the migration analysis:
 // Document in README: Users should add to capacitor.config.json
 {
   "hooks": {
-    "capacitor:sync:end": "node node_modules/@company/plugin/scripts/copyResources.js"
+    "capacitor:sync:after": "node node_modules/@company/plugin/scripts/copyResources.js"
   }
 }
 \`\`\`
@@ -221,27 +375,35 @@ When hooks are detected, include this in the migration analysis:
 
 ---
 
-### Hook 2: Dependency Installer (after_plugin_install)
+### Hook 2: Setup Instructions Banner (after_plugin_install)
 **Location:** plugin.xml:45
-**Script:** scripts/installNativeDeps.js
-**Purpose:** Installs CocoaPods dependencies for iOS
+**Script:** scripts/printSetupInstructions.js
+**Purpose:** Prints the Info.plist privacy strings, AndroidManifest entries,
+and any capability toggles the consumer must add to their host app, so the
+steps surface immediately after install instead of being buried in the
+README. The most common real `after_plugin_install` pattern in the
+Cordova ecosystem.
 
-**Migration Strategy:** ⚠️ **Tier 2 - Custom Script**
+**Migration Strategy:** ⚠️ **Tier 2 - npm `postinstall`**
 
 **Recommended Approach:**
 \`\`\`json
 // Add to plugin's package.json
 {
   "scripts": {
-    "postinstall": "node scripts/installNativeDeps.js && npx cap sync ios"
+    "postinstall": "node scripts/printSetupInstructions.js"
   }
 }
 \`\`\`
 
 **Implementation Notes:**
-- Script runs automatically after `npm install`
-- Users may need to run `pod install` manually if postinstall fails
-- Document manual steps in README as fallback
+- Runs once per plugin install, against the plugin package itself.
+  Prints to stdout, no side effects on the host app.
+- Do **not** chain `pod install` or `npx cap sync` here. CocoaPods is a
+  consumer-side step (against the host app's `Podfile`), and Capacitor 8
+  defaults to SPM anyway. `cap sync` runs on the host app, not the plugin.
+- Skip the banner if README + MIGRATION.md already cover the same setup
+  steps. Duplicated instructions go stale.
 
 ---
 

@@ -70,6 +70,63 @@ Add the following to your `AndroidManifest.xml` inside the `<application>` tag:
 - ❌ **Blocker**: Complex conditional modifications
 - ⚠️ **Warning**: Simple, well-documented manual steps
 
+### Entitlement Plists (iOS Capabilities)
+
+A specific case worth calling out: `<config-file>` targets that end in
+`-Debug.plist`, `-Release.plist`, or `-Entitlements.plist` mutate the **app
+entitlement plist**, not Info.plist. These map to Xcode "Signing &
+Capabilities" entries, not to consumer-facing privacy strings.
+
+**Cordova Pattern:**
+
+```xml
+<!-- Apple Pay capability -->
+<config-file target="*-Debug.plist" parent="com.apple.developer.in-app-payments">
+  <array>
+    <string>merchant.com.example.app</string>
+  </array>
+</config-file>
+<config-file target="*-Release.plist" parent="com.apple.developer.in-app-payments">
+  <array>
+    <string>merchant.com.example.app</string>
+  </array>
+</config-file>
+```
+
+**Capacitor Migration:**
+
+- Document the **exact Xcode capability** the user must enable (Apple Pay,
+  Push Notifications, App Groups, etc.) in `MIGRATION.md`.
+- Document the **entitlement value** (merchant ID, app group identifier).
+- Record under `migration.warnings`. Not a blocker, but easy to miss
+  because the consumer must toggle a capability in Xcode by hand.
+
+**Example documentation block:**
+
+```markdown
+## iOS Capabilities
+
+This plugin requires the **Apple Pay** capability.
+
+1. Open `ios/App/App.xcworkspace` in Xcode.
+2. Select the App target.
+3. Go to **Signing & Capabilities → + Capability → Apple Pay**.
+4. Add your Apple Pay merchant ID under "Merchant IDs":
+   `merchant.com.example.app`.
+5. Repeat for both Debug and Release configurations if they differ.
+```
+
+Common capability targets:
+
+| Cordova parent | Xcode capability |
+| --- | --- |
+| `com.apple.developer.in-app-payments` | Apple Pay |
+| `aps-environment` | Push Notifications |
+| `com.apple.developer.associated-domains` | Associated Domains |
+| `com.apple.security.application-groups` | App Groups |
+| `com.apple.developer.healthkit` | HealthKit |
+| `com.apple.developer.networking.wifi-info` | Access Wi-Fi Information |
+
 ---
 
 ## Installation Hooks
@@ -94,13 +151,13 @@ Cordova's hook system is deeply integrated with the Cordova CLI lifecycle. Capac
 
 ### Migration Strategy
 
-Use the **three-tiered approach** (see [reference/hooks-migration.md](hooks-migration.md) for complete details):
+Use the **three-tiered approach** (see [hooks-migration.md](hooks-migration.md) for complete details):
 
 **Tier 1: Capacitor Hooks** (for sync/copy lifecycle)
 ```json
 {
   "hooks": {
-    "capacitor:sync:end": "node scripts/script.js"
+    "capacitor:sync:after": "node scripts/script.js"
   }
 }
 ```
