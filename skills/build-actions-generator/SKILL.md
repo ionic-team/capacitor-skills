@@ -334,9 +334,7 @@ configuration is required — inferred from the generated actions.>
 - Do not show analysis tables, scanning decisions, or per-element reasoning in
   the terminal. Internal reasoning stays internal; noteworthy decisions that did
   not map cleanly belong in the README, not the terminal.
-- Output a single short note: *"Build actions written to `build-actions/`.
-  Review `build-actions/buildAction.json` and see `build-actions/README.md` for
-  a summary of what this configures and ODC setup instructions."*
+- Output a single short note: *"Build actions written to `build-actions/`. This is a candidate — review `build-actions/buildAction.json` before use, then validate with a MABS 12+ build and functional tests against a real mobile app. See `build-actions/README.md` for a summary of what this configures and ODC setup instructions."*
 - If `## What requires additional setup` was written to the README, add one
   additional line: *"Some hooks or elements could not be mapped to build
   actions — see `build-actions/README.md` for details."*
