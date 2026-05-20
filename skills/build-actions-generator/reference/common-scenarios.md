@@ -136,3 +136,57 @@ splitting into two conditional entries.
 
 Do **not** split into two entries with `condition: eq($X, true)` and
 `condition: eq($X, false)` — a single parameterised entry is sufficient.
+
+---
+
+## Pattern: Local Maven repository for plugin-bundled native libraries
+
+### Scenario
+
+Some plugins (typically commercial or proprietary ones) ship native Android
+libraries as AAR files in a `libs/` folder within the plugin bundle. Gradle must
+be told where to find those files by adding a `maven { url ... }` entry to the
+root `build.gradle` `allprojects.repositories` block. This requirement surfaces
+in two ways:
+
+- **Plugin README**: documents an explicit setup step instructing the developer
+  to add a `maven { url "${project(':capacitor-my-plugin').projectDir}/libs" }`
+  block to the root `build.gradle`.
+- **Plugin's own `build.gradle`**: contains a `maven { url ... }` entry that
+  uses `${project(':capacitor-my-plugin').projectDir}` as a relative path to its
+  own `libs/` folder.
+
+### Why this requires a build action
+
+A `libs/` folder repository using `${project(':plugin-id').projectDir}` must be
+declared in the root `build.gradle` `allprojects.repositories` block — the
+plugin's own `android/build.gradle`, merged by Capacitor CLI during sync, is not
+visible to the consuming project's dependency resolver.
+
+### Correct approach
+
+```json
+{
+  "platforms": {
+    "android": {
+      "gradle": [
+        {
+          "file": "build.gradle",
+          "target": { "allprojects": { "repositories": null } },
+          "insert": [
+            {
+              "maven": [
+                { "url": "\"${project(':capacitor-my-plugin').projectDir}/libs\"" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+The double quotes inside the `url` value are part of the Groovy string — Gradle
+requires double quotes for GString interpolation. Replace `capacitor-my-plugin` with the actual plugin project name (the Gradle
+project identifier, which matches the folder name under `node_modules`).
