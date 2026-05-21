@@ -40,7 +40,21 @@ Conditions control whether an individual action runs. Add a `condition` field
 to any action entry (except `displayName`, `productName`, and `appName` — see
 platform reference files) using function-style expressions.
 
-**`condition` must be a string.** Never use an object, array, or any other type — the validator will reject it. The only valid form is the function-style string syntax shown below:
+**`condition` must be a string.** Never use an object, array, or any other type — the validator will reject it. The only valid form is the function-style string syntax shown below.
+
+These are all **invalid** and will fail validation:
+
+```json
+"condition": { "operator": "ne", "left": "$COLOR", "right": "" }
+"condition": { "op": "ne", "arg1": "$COLOR", "arg2": "" }
+"condition": ["ne", "$COLOR", ""]
+```
+
+This is the **only valid form**:
+
+```json
+"condition": "ne($COLOR, \"\")"
+```
 
 | Operator | Meaning | Example |
 |----------|---------|---------|
