@@ -67,6 +67,76 @@ export class MyPluginWeb extends WebPlugin implements MyPluginPlugin {
 | Bridge | Explicit `exec()` call | Automatic via `registerPlugin()` |
 | Web Support | Optional | Built-in with `WebPlugin` |
 
+### Stringified JSON Blob Arguments
+
+A common Cordova anti-pattern: the JavaScript layer passes a pre-serialized
+JSON string and the native handler parses it.
+
+**Cordova:**
+```javascript
+exports.submitOrder = function(orderDetails, accessToken, success, error) {
+    exec(success, error, 'MyPlugin', 'submitOrder',
+         [JSON.stringify(orderDetails), accessToken]);
+};
+```
+
+**Native handler (Android Kotlin):**
+```kotlin
+private fun submitOrder(args: JSONArray) {
+    val details = gson.fromJson(args.getString(0), OrderDetails::class.java)
+    // ...
+}
+```
+
+**Native handler (iOS Swift):**
+```swift
+guard let json = command.argument(at: 0) as? String,
+      let data = json.data(using: .utf8),
+      let details = try? JSONDecoder().decode(OrderDetails.self, from: data) else { return }
+```
+
+**Capacitor migration:** Replace the stringified blob with a strongly-typed
+TypeScript interface. Read the native parsing site to capture the schema.
+
+```typescript
+// src/definitions.ts
+export interface OrderDetails {
+  amount: number;
+  currency: string;
+  // ... whatever fields the native data class actually decodes
+}
+
+export interface MyPlugin {
+  submitOrder(options: {
+    orderDetails: OrderDetails;
+    accessToken?: string;
+  }): Promise<OrderResult>;
+}
+```
+
+```kotlin
+// Android. Capacitor receives the typed object directly.
+@PluginMethod
+fun submitOrder(call: PluginCall) {
+    val details = call.getObject("orderDetails")
+    // map JSObject -> OrderDetails data class
+}
+```
+
+**Migration YAML hint:**
+
+```yaml
+migration:
+  cordova_to_capacitor_map:
+    - cordova: "MyPlugin.submitOrder(JSON.stringify(details), token, ok, err)"
+      capacitor: "MyPlugin.submitOrder({ orderDetails, accessToken })"
+api:
+  types:
+    - name: OrderDetails
+      kind: interface
+      fields: [...]                # exact shape from the native parsing site
+```
+
 ---
 
 ## iOS Native Pattern
