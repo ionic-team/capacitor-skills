@@ -158,6 +158,11 @@ the plugin already provides the entry before generating a build action for it.
   a `gradle` action for `minSdkVersion` if the required value is **greater than
   29**, and include a note in the README that the app's minimum Android version
   is being raised above the ODC default.
+- **Android `compileSdkVersion` and `targetSdkVersion`:** MABS 12+ (ODC)
+  enforces `compileSdkVersion` 35 and `targetSdkVersion` 36. Skip any `gradle`
+  build action that sets these values at or below those floors — they are
+  already satisfied. Only generate a `gradle` action if the required value
+  exceeds the MABS floor.
 - **iOS deployment target:** MABS 12+ (ODC) enforces a minimum deployment target
   of 15. Do not generate `buildSettings` or `xcconfig` actions that set
   `IPHONEOS_DEPLOYMENT_TARGET` below 15.
