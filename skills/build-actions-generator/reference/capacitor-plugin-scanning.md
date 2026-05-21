@@ -149,6 +149,19 @@ app-level `build.gradle` is required as a setup step. Examples of such steps:
 Check `android/build.gradle` and `android/variables.gradle` to confirm whether
 the plugin already provides the entry before generating a build action for it.
 
+**ODC minimum SDK constraints — do not generate build actions that violate these floors:**
+
+- **Android `minSdkVersion`:** MABS 12+ (ODC) enforces a minimum of 29. If a
+  plugin's README documents a required `minSdkVersion` ≤ 29, skip the `gradle`
+  build action — the ODC floor already satisfies the requirement. Setting a
+  value below 29 will break ODC builds or cause runtime failures. Only generate
+  a `gradle` action for `minSdkVersion` if the required value is **greater than
+  29**, and include a note in the README that the app's minimum Android version
+  is being raised above the ODC default.
+- **iOS deployment target:** MABS 12+ (ODC) enforces a minimum deployment target
+  of 15. Do not generate `buildSettings` or `xcconfig` actions that set
+  `IPHONEOS_DEPLOYMENT_TARGET` below 15.
+
 ### Java / Kotlin source
 
 Scan source files under `android/src/main/java/` or `android/src/main/kotlin/`:
