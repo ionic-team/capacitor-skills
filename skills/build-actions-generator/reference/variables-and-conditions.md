@@ -60,10 +60,10 @@ Arguments can be variable references (`$VAR_NAME`) or literal values:
 }
 ```
 
----
+### Limitation: empty string comparisons are not supported
 
-## See also: supplying variable values in ODC
+Conditions cannot compare a variable against an empty string literal (`''`). The following is **invalid** and will fail validation:
 
-Variables declared here are supplied at build time via the `parameters` block in the extensibility configuration. Values in `parameters` can be hardcoded literals or extensibility setting references (`$extensibilitySettings.SettingName`). The plugin developer creates extensibility settings in ODC Studio and references them in `parameters`; the consuming app then sets their values in ODC Portal — without hardcoding anything in the JSON.
-
-See **[reference/extensibility-configuration.md](extensibility-configuration.md)** for the `parameters` contract and how to create extensibility settings in ODC Studio.
+```json
+"condition": "ne($SOME_STRING, '')"
+```
