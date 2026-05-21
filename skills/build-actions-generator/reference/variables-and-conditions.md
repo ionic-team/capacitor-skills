@@ -38,7 +38,9 @@ values inside the JSON.
 
 Conditions control whether an individual action runs. Add a `condition` field
 to any action entry (except `displayName`, `productName`, and `appName` — see
-platform reference files) using function-style expressions:
+platform reference files) using function-style expressions.
+
+**`condition` must be a string.** Never use an object, array, or any other type — the validator will reject it. The only valid form is the function-style string syntax shown below:
 
 | Operator | Meaning | Example |
 |----------|---------|---------|
