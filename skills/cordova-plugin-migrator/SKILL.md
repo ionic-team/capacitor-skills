@@ -1,672 +1,460 @@
 ---
 name: cordova-plugin-migrator
 description: >-
-  Analyzes Cordova plugins for conversion to Capacitor. Examines plugin.xml,
-  JavaScript bridge code, iOS (Objective-C/Swift), and Android (Java/Kotlin)
-  implementations. Identifies migration complexity, maps Cordova APIs to
-  Capacitor equivalents, highlights unsupported patterns, and assesses
-  migration feasibility. Use when migrating Cordova plugins, understanding
-  plugin architecture for conversion, assessing migration effort, identifying
-  migration blockers, or planning Capacitor plugin development from existing
-  Cordova plugins.
+  End-to-end Cordova-to-Capacitor migration orchestrator. Analyzes the
+  Cordova plugin (plugin.xml, native iOS/Android source, JS bridge,
+  hooks, third-party dependencies), produces a structured migration plan
+  as YAML conforming to capacitor-plugin-generator's input contract,
+  invokes the generator skill in structured mode at a user checkpoint,
+  then consolidates intermediate notes into a single MIGRATION.md. Use
+  when the user says "migrate this cordova plugin", "convert cordova to
+  capacitor", "assess migration feasibility", "what blocks this
+  migration", "port this cordova plugin to capacitor", or "estimate the
+  effort to migrate". Do not use for generating new Capacitor plugins
+  from scratch (use capacitor-plugin-generator instead), debugging
+  runtime issues in an already-migrated plugin, or migrating an entire
+  Cordova application; scope is plugin-level only.
+metadata:
+  author: ionic
+  source: https://github.com/ionic-team/capacitor-skills
 ---
 
-# Cordova to Capacitor Plugin Migration Analyzer
+# Cordova Plugin Migrator
 
-Analyzes Cordova plugins to understand their structure and plan their conversion to Capacitor. Provides architecture analysis, migration complexity assessment, Cordova-to-Capacitor API mappings, and identifies unsupported patterns that block or complicate migration.
-
-## Contents
-
-- [Purpose](#purpose)
-- [When to Use This Skill](#when-to-use-this-skill)
-- [When NOT to Use This Skill](#when-not-to-use-this-skill)
-- [Analysis Approach](#analysis-approach)
-- [Migration Complexity Assessment](#migration-complexity-assessment)
-- [Plugin Structure Reference](#plugin-structure-reference)
-- [Unsupported Patterns and Migration Blockers](#unsupported-patterns-and-migration-blockers)
-- [Migration Analysis Output Format](#migration-analysis-output-format)
-- [Migration Completion & Documentation Cleanup](#migration-completion--documentation-cleanup)
-- [Migration Analysis Checklist](#migration-analysis-checklist)
-- [Tips for Migration Analysis](#tips-for-migration-analysis)
-- [Limitations](#limitations)
-- [Additional Resources](#additional-resources)
-
----
-
-## Purpose
-
-This skill analyzes Cordova plugins to prepare them for migration to Capacitor. It identifies key patterns, assesses migration complexity, maps Cordova concepts to their Capacitor equivalents, and **flags Cordova-specific features that cannot be converted** or require significant workarounds.
-
-**Primary Workflow:** The analysis output is designed to feed directly into the `capacitor-plugin-dev` skill for building the Capacitor plugin. The analysis provides all necessary information for plugin development without requiring repeated inspection of the original Cordova code.
-
----
+End-to-end orchestrator that takes a Cordova plugin source tree and
+produces a candidate Capacitor plugin plus a consolidated `MIGRATION.md`,
+via a single skill invocation. Internally it analyzes the Cordova plugin,
+emits a structured YAML plan conforming to
+`capacitor-plugin-generator/references/input-contract.md`, hits a user
+checkpoint, then invokes the `capacitor-plugin-generator` skill in
+structured mode with that plan. This skill never re-implements what the
+generator already does; the generator owns scaffolding and native code
+emission.
 
 ## When to Use This Skill
 
-Use this skill when you need to:
+✅ **Use this skill when:**
 
-- ✅ Plan a Cordova to Capacitor plugin migration
-- ✅ Understand Cordova plugin structure for conversion purposes
-- ✅ Assess migration complexity and effort estimation
-- ✅ Identify platform-specific migration challenges
-- ✅ Map Cordova APIs to Capacitor equivalents
-- ✅ Detect unsupported patterns and migration blockers
-- ✅ Understand what code needs to change for Capacitor compatibility
-- ✅ Evaluate migration feasibility before starting work
+- Migrating an existing Cordova plugin to Capacitor.
+- Assessing migration complexity, effort, and blockers before committing.
+- Producing the structured handoff YAML for `capacitor-plugin-generator`.
+- Comparing the official Cordova API to an existing or planned Capacitor API.
+- Auditing a Cordova plugin's hooks, native dependencies, or `<config-file>`
+  modifications for portability.
 
----
+❌ **Do NOT use this skill for:**
 
-## When NOT to Use This Skill
+- Generating a Capacitor plugin scaffold or implementation, pass the plan to
+  `capacitor-plugin-generator`.
+- Designing a brand-new plugin without prior Cordova source.
+- Migrating entire Cordova apps. Scope is plugin-level only.
+- Debugging runtime issues in an already-migrated plugin.
+- Publishing or releasing the resulting Capacitor plugin.
 
-This skill is focused on migration analysis, NOT:
+## Prerequisites
 
-- ❌ Creating new Capacitor plugins from scratch (use capacitor-plugin-dev skill)
-- ❌ General Cordova development without migration intent
-- ❌ Debugging runtime issues or crashes
-- ❌ Migrating entire Cordova apps (this is plugin-specific only)
-- ❌ Performing the actual code refactoring (analysis only)
+| Requirement | Use |
+| --- | --- |
+| Cordova plugin source (local clone or accessible repo) | Read `plugin.xml`, native source, and JS bridge. |
+| Node.js LTS and npm | Inspect dependencies, run scripts referenced by hooks. |
+| `capacitor-plugin-generator` skill | Receives the YAML plan this skill produces. |
+| `capacitor-plugin-generator/references/input-contract.md` | Authoritative shape for the handoff YAML. |
+| Read access to the official Capacitor equivalent (if any) | Reuse wire-format names and types when porting a plugin that already exists in Capacitor. |
+| Xcode and Android Studio (optional) | Confirm SDK availability for detected native dependencies. |
 
-For creating new Capacitor plugins from scratch, use the capacitor-plugin-dev skill. For general development assistance, request it separately.
+## Agent Behavior
 
----
+- Run as an orchestrator. Phases 1–10 analyze the Cordova source and
+  produce a YAML plan; Phase 11 invokes `capacitor-plugin-generator` via
+  the Skill tool, passing the plan in structured mode; Phase 12
+  consolidates documentation. Do not emit native Capacitor code from
+  this skill. The generator owns that.
+- Read `capacitor-plugin-generator/references/input-contract.md` before
+  producing YAML. The generator's contract is authoritative; do not invent
+  fields or rename existing ones.
+- Resolve the plugin's identity from `plugin.xml` first: id, name, version,
+  declared platforms, declared frameworks, hooks, and config-file targets.
+- Inspect every native dependency declaration before asserting platform
+  support. Mirror what `plugin.xml` actually says, not what the README claims.
+- Classify each `<hook>` into Tier 1 (Capacitor hooks), Tier 2 (npm
+  scripts/manual steps), or Tier 3 (blocker) using the rules in
+  `references/hooks-migration.md`. A single Tier 3 hook is enough to block
+  generator handoff.
+- When an official Capacitor equivalent exists (`@capacitor/<name>` or a
+  Capawesome/community port), read its `definitions.ts` and native source.
+  Reuse its wire-format strings, enum values, method names, and event names
+  verbatim. Do not invent parallel APIs that "look similar."
+- Detect hybrid plugins. If `package.json` already declares `scripts.capacitor:*`
+  hooks, the plugin is partially Capacitor-aware. Record the existing hooks
+  as Tier 1 "already converted" and ask the user whether to reuse, rewrite,
+  or merge them. Do not silently drop them.
+- A JS method whose Cordova-side argument is a stringified JSON blob
+  (`JSON.parse` / `Gson.fromJson` / `JSONObject(args.getString(0))` in the
+  native handler) must be mapped to a strongly-typed TypeScript interface in
+  `api.types`, not a `string` parameter. Capture the interface shape from
+  the native parsing site.
+- When the Cordova native source uses runtime permission APIs
+  (`cordova.requestPermission`, `requestPermissions(...)`,
+  `AVCaptureDevice.requestAccess`, `PHPhotoLibrary.requestAuthorization`,
+  `CLLocationManager` delegates, `CNContactStore.requestAccess`, etc.), add
+  `checkPermissions()` and `requestPermissions()` methods to the YAML
+  **even if the Cordova JS surface did not expose them**. Capacitor's
+  convention is explicit permission methods, and the official equivalent
+  (if any) almost always exposes them.
+- When the Cordova native source extracts metadata in helper classes
+  (`ExifHelper`, `MimeTypeHelper`, `ImageMetadata`, etc.) and includes it
+  in the response payload, capture those fields in the corresponding
+  `api.types` interface, even if the Cordova JS docs did not document
+  them. Read the native code, not the README.
+- When mirroring an official Capacitor equivalent, sanity-check the
+  official's native LOC against the Cordova source's native LOC. If the
+  official is more than 3× larger, add a `migration.notes` entry warning
+  the reviewer that a literal port will leave behavior the official
+  handles (e.g., iOS `CHHapticEngine` for duration-accurate vibration,
+  Android `VibrationEffect` patterns for impact / notification) on the
+  floor. The generator's SDK-adapter rule may or may not catch this.
+- Distinguish three downstream destinations when emitting setup notes:
+  1. **Plugin's own packaging.** Gradle `implementation '...'` lines,
+     CocoaPods `s.dependency '...'` lines, custom Maven repo URLs,
+     `s.weak_framework`, `s.vendored_frameworks`, AndroidManifest
+     `<uses-permission>` / `<meta-data>` / `<queries>` entries, and
+     `@CapacitorPlugin(permissions = [...])` declarations all belong
+     in the plugin's own `android/build.gradle`, `.podspec`,
+     `android/src/main/AndroidManifest.xml`, or annotations. Gradle's
+     manifest merger and CocoaPods transitively propagate these to
+     consumers, so no host-app step and no `MIGRATION.md` entry is
+     required.
+  2. **Host-app build configuration.** Items that cannot live in the
+     plugin package and must be applied to the consuming app: Info.plist
+     privacy strings (`NSCameraUsageDescription`,
+     `NSLocationWhenInUseUsageDescription`, etc.), iOS capabilities and
+     entitlements (Apple Pay merchant ID, `aps-environment`,
+     `com.apple.security.application-groups`), and any other manifest
+     mutation that must live on the host app rather than the plugin.
+     Record under `migration.notes` and document in `MIGRATION.md` with
+     copy-paste-ready snippets per platform.
+  3. **Consumer runtime config / code.** Apple Developer-side credential
+     provisioning, host-app-supplied JSON config values (merchant
+     numbers, API keys), and consumer JS call-site migration (callback
+     → Promise, positional → named). No tool can automate these because
+     the inputs are the consumer's own data.
 
-## Analysis Approach
+  Record each `plugin.xml` directive under one of those three buckets
+  in `migration.notes`. Never write a `MIGRATION.md` step that asks
+  consumers to add `implementation '...'` for a dep the plugin should
+  bundle. See `references/dependency-migration.md` "Ownership Model"
+  for the dep-specific table.
 
-### Progressive Disclosure for Migration
+- When the Cordova plugin used `<preference name="VAR" default="...">`
+  install-time placeholders inside `<config-file target="*-Info.plist">`
+  entries (Apple Pay merchant config, OAuth client IDs, analytics keys,
+  etc.), detect it and recommend the **runtime config JSON file**
+  pattern in `migration.warnings`: a `PluginConfig.json` consumed by a
+  hybrid `capacitor:sync:after` script that copies the file into native
+  projects at build time. The Cordova plugin may already ship this
+  script (look for it in `hooks/capacitor*.js`); if so, reuse it.
+  Otherwise propose a one-screen template. This pattern keeps consumer
+  values out of static plist / manifest entries entirely.
+- Detect SPM markers in `plugin.xml`: `<platform name="ios" package="swift">`
+  and `<pod ... nospm="true">` indicate the Cordova plugin already ships a
+  sibling `Package.swift`. When present: (a) read that `Package.swift` and
+  lift its dependencies into the YAML's `dependencies.ios.spm`, (b) move
+  any pod **without** `nospm="true"` to `dependencies.ios.cocoapods`,
+  (c) add a `migration.notes` entry that the generated Capacitor plugin
+  must ship both `Package.swift` and `.podspec` (Capacitor 8 supports
+  both, and SPM is the default for new plugins). See
+  `references/dependency-migration.md` "Swift Package Manager (SPM)" for
+  the schema.
+- Default output mode is Mode B (side-by-side directory). Switch to Mode A
+  (in-place with `.cordova-archive/`) only when the user explicitly asks and
+  the source is in a writable working copy.
+- Stop and request user input when blockers, Tier 3 hooks, unresolvable
+  proprietary SDKs, or missing source files would force you to guess. Do not
+  emit a YAML plan that hides the gap.
+- Distinguish between resolvable warnings (documented manual steps) and
+  blockers (cannot be auto-migrated). Both go in the plan; only blockers stop
+  handoff.
+- A vendored binary checked into the Cordova plugin's tree (e.g.,
+  `src/ios/frameworks/Foo.xcframework`) is **not** a blocker on its own. Carry
+  the binary forward and record its path under
+  `migration.source_files.ios` (or `.android`). Treat as blocker only when
+  the binary requires runtime credentials the user does not have or fails
+  AndroidX / 64-bit / simulator requirements.
+- Report what was actually inspected. Cite file paths and line numbers when
+  flagging blockers or unsupported patterns.
+- Compare iOS and Android findings against each other before declaring
+  Phase 9. If one platform exposes a method the other does not, surface the
+  mismatch in `migration.warnings` so the generator can pick a strategy
+  (mirror both, expose conditionally, or drop). Do not silently emit a
+  contract that only one platform can fulfil.
+- Default response shape is **architecture and plan**, not code. Do not
+  include full before/after code blocks unless the user explicitly asks for
+  "show me the code" or "deep dive". Per-method one-line mappings in
+  `migration.cordova_to_capacitor_map` are not "code" in this sense, they
+  are part of the plan.
+- Quote every value in `migration.cordova_to_capacitor_map` and any other
+  YAML string that contains JS syntax (`(`, `)`, `{`, `}`, `:`, `[`, `]`).
+  Unquoted JS expressions like `Foo.bar({ x: 1 })` are unparseable YAML and
+  the generator will reject the plan at load time.
+- Invoke the generator only after the Phase 10 user checkpoint
+  approves. If the user rejects, halts, or has unanswered blockers,
+  stop. Never invoke the generator with a YAML that has non-empty
+  `migration.blockers` or non-empty `migration.hooks.tier_3`.
 
-When analyzing a plugin for migration, follow this progression:
+## Procedures
 
-**1. Initial Analysis (Default Response)**
-- Plugin purpose and functionality
-- Supported platforms (iOS, Android, web)
-- Migration complexity assessment (Simple, Moderate, Complex)
-- Critical unsupported patterns that block migration
-- Cordova plugin architecture summary (methods, classes, flow)
-- Capacitor plugin mapping (how it will translate)
-- ASCII art visualization of architecture transformation
-- Migration roadmap
-- **NOTE:** Do NOT include code snippets unless specifically requested
+### Phase 1: Determine the Task and Output Mode
 
-**2. Detailed Code Examples (On Request Only)**
-- Before/after code comparisons
-- Specific method conversion examples
-- Platform-specific code migration details
-- Implementation code snippets
+Confirm the user has a Cordova plugin to migrate. **If the user wants a
+brand-new Capacitor plugin from scratch with no Cordova source to
+convert**, stop here and redirect to `capacitor-plugin-generator`
+directly, this skill has nothing to add.
 
-See **[reference/api-mappings.md](reference/api-mappings.md)** for detailed Cordova to Capacitor code mappings.
+Otherwise, pick the output mode:
 
-See **[reference/migration-patterns.md](reference/migration-patterns.md)** for common migration patterns and examples.
+- **Mode B (default, side-by-side)**, generator scaffolds a new
+  Capacitor plugin into a sibling directory of the Cordova repo. The
+  Cordova repo is never touched.
+- **Mode A (opt-in, in-place)**, generator scaffolds into a temp
+  directory. After Phase 11 succeeds, Phase 12 relocates the generator's
+  output into the Cordova repo root and moves the original Cordova
+  source under `.cordova-archive/`. Preserves the original repo's npm
+  package name and git history. Requires explicit user opt-in and a
+  clean writable git working copy.
 
-**3. Deep Dive Analysis (On Request Only)**
-- Method-by-method migration strategy
-- Line-by-line code walkthrough
-- Platform-specific migration nuances
-- Required workarounds for unsupported features
+See `references/output-modes.md` for layouts, pre-flight checks, and
+the exact relocation sequence.
 
-### Migration Analysis Flow
+### Phase 2: Read `plugin.xml`
 
-```
-1. Read plugin.xml → Identify unsupported config patterns
-2. Analyze third-party dependencies → Map CocoaPods, Gradle, and manual dependencies
-3. Analyze www/ directory → Map JavaScript API to TypeScript
-4. Examine iOS src/ → Map CDVPlugin to CAPPlugin patterns
-5. Examine Android src/ → Map CordovaPlugin to Plugin/Bridge patterns
-6. Assess complexity → Flag blockers and assess feasibility
-7. Generate architecture mapping → Visualize Cordova → Capacitor transformation
-8. Provide migration roadmap → Prioritize conversion steps
-9. Output analysis → Ready for capacitor-plugin-dev skill consumption
-```
-
-**Default Workflow:**
-Unless otherwise specified, the analysis is intended to feed into the `capacitor-plugin-dev` skill for implementation. The output provides all necessary architectural information, API mappings, and migration requirements without code snippets.
-
----
-
-## Migration Complexity Assessment
-
-**Simple Migration**
-- Basic exec() calls with simple arguments
-- Standard success/error callbacks
-- Minimal plugin.xml configuration
-- No unsupported patterns
-- Standard iOS/Android APIs
-
-**Moderate Migration**
-- Complex data structures in arguments
-- Multiple platform-specific implementations
-- Framework dependencies that need remapping
-- Some config-file modifications (need workarounds)
-- Async/Promise patterns need refactoring
-
-**Complex Migration**
-- Heavy use of plugin.xml hooks or edit-config
-- Extensive config-file modifications
-- Dependencies on other Cordova plugins
-- Platform-specific hacks or workarounds
-- Unsupported Cordova APIs without Capacitor equivalents
-
----
-
-## Plugin Structure Reference
-
-### Standard Cordova Plugin Layout
+A typical Cordova plugin layout:
 
 ```
 my-plugin/
 ├── plugin.xml           # Plugin manifest and configuration
-├── www/
-│   └── MyPlugin.js      # JavaScript interface
+├── package.json         # NPM metadata (and any capacitor:* scripts)
+├── www/                 # JavaScript bridge
 ├── src/
-│   ├── ios/
-│   │   └── MyPlugin.{h,m,swift}     # iOS implementation
-│   └── android/
-│       └── MyPlugin.java             # Android implementation
-└── package.json         # NPM metadata
+│   ├── ios/             # CDVPlugin subclasses (.h/.m/.swift)
+│   └── android/         # CordovaPlugin subclasses (.java/.kt)
+└── hooks/               # Optional lifecycle scripts
 ```
 
-### Key Files to Analyze
-
-**plugin.xml**
-- Plugin ID, version, description
-- Platform declarations (`<platform name="ios|android">`)
-- Source file mappings (`<source-file>`, `<header-file>`)
-- Config file modifications (`<config-file>`)
-- Dependencies and frameworks
-
-**www/*.js (JavaScript Layer)**
-- Public API methods
-- `cordova.exec()` bridge calls
-- Success/error callback handling
-- Parameter serialization
-
-**src/ios/*.{h,m,swift} (iOS Layer)**
-- CDVPlugin subclass
-- Method implementations matching JS actions
-- CDVPluginResult responses
-- iOS-specific APIs and frameworks
-
-**src/android/*.java (Android Layer)**
-- CordovaPlugin subclass
-- execute() method with action routing
-- CallbackContext responses
-- Android-specific APIs and permissions
-
----
-
-## Unsupported Patterns and Migration Blockers
-
-**CRITICAL:** Capacitor has a fundamentally different architecture than Cordova. The following patterns **cannot** be directly converted and require workarounds or manual configuration.
-
-### Quick Reference Table
-
-| Cordova Feature | Capacitor Status | Workaround |
-|----------------|------------------|------------|
-| `<config-file>` modifications | ❌ Not supported | Manual native project configuration required |
-| `<edit-config>` | ❌ Not supported | Manual native project configuration required |
-| Hooks (`<hook>`) | ❌ Not supported | Use npm scripts, Capacitor hooks, or manual steps |
-| `<js-module runs="true">` | ❌ Not supported | Move to plugin initialization code |
-| `clobbers` target | ⚠️ Different pattern | Use Capacitor's `registerPlugin()` |
-| `merges` target | ⚠️ Different pattern | Use Capacitor's `registerPlugin()` |
-| `<dependency>` on other plugins | ⚠️ Different | Use npm dependencies + manual checks |
-| `<preference>` tags | ⚠️ Different | Use Capacitor config or manual iOS/Android configs |
-| `<resource-file>` | ⚠️ Different | Manual native project resource management |
-| `<framework>` injection | ⚠️ Partially supported | Manual Podfile/gradle configuration |
-| Permissions | ⚠️ Must document | Document in README, use runtime permission APIs |
-
-### Detailed Unsupported Patterns
-
-See **[reference/unsupported-patterns.md](reference/unsupported-patterns.md)** for:
-- Detailed explanations of each unsupported pattern
-- Why each pattern fails in Capacitor
-- Specific workarounds and migration strategies
-- Examples and code snippets
-- When to flag patterns as migration blockers
-
-### Third-Party Dependencies
-
-See **[reference/dependency-migration.md](reference/dependency-migration.md)** for:
-- Identifying dependencies in Cordova (CocoaPods, Gradle, frameworks)
-- iOS dependencies (System Frameworks, CocoaPods, SPM, custom frameworks)
-- Android dependencies (Gradle, AAR/JAR, Maven repositories)
-- Migration strategies for each dependency type
-- When to flag dependencies as migration blockers
-- Complete analysis templates and examples
-
-### Cordova Hooks Migration
-
-See **[reference/hooks-migration.md](reference/hooks-migration.md)** for:
-- Three-tiered approach to hook migration (Tier 1/2/3)
-- Available Capacitor hooks
-- npm lifecycle script alternatives
-- Migration blocker identification
-- Hook analysis workflow and templates
-- Complete examples for each tier
-
-**Quick Summary:**
-- **Tier 1 ✅**: Convertible to Capacitor hooks (`capacitor:sync:end`, etc.)
-- **Tier 2 ⚠️**: Convertible to npm scripts (`postinstall`, etc.) or manual steps
-- **Tier 3 ❌**: Migration blockers (interactive hooks, Cordova-specific operations)
-
----
-
-## Migration Analysis Output Format
-
-When analyzing a plugin for migration, structure your response as follows:
-
-### 1. Migration Overview Section
-
-```markdown
-## Migration Overview
-
-**Plugin Name:** [Plugin name from plugin.xml]
-**Plugin ID:** [Cordova plugin ID]
-**Purpose:** [Brief description of what the plugin does]
-**Platforms:** [iOS, Android, web]
-**Migration Complexity:** [Simple / Moderate / Complex]
-**Migration Feasibility:** [Straightforward / Requires Workarounds / Challenging]
-```
-
-### 2. Unsupported Patterns Detection
-
-```markdown
-## ⚠️ Migration Blockers & Unsupported Patterns
-
-[IF NONE FOUND:]
-✅ No blocking unsupported patterns detected. This plugin uses standard Cordova APIs that have Capacitor equivalents.
-
-[IF FOUND:]
-❌ **Critical Issues:**
-1. **config-file modifications** (plugin.xml:45-52)
-   - Modifies AndroidManifest.xml
-   - Requires manual native configuration after migration
-
-2. **Installation hooks - Migration Blocker** (plugin.xml:12)
-   - Uses interactive setup hook that cannot be converted
-   - See detailed hook analysis below
-
-⚠️ **Warnings:**
-1. **Framework dependencies** (plugin.xml:78-82)
-   - Requires manual Podfile/gradle configuration
-
-2. **Hooks - Convertible** (plugin.xml:38, 45)
-   - Uses convertible hooks (see detailed analysis below)
-   - Migration strategy: Capacitor hooks + npm scripts
-```
-
-### 3. Third-Party Dependencies Analysis
-
-**Include this section for ALL plugins that have `<framework>` tags or custom dependencies in plugin.xml.**
-
-Analyze and document migration strategy for each dependency:
-
-```markdown
-## 📦 Third-Party Dependencies Analysis
-
-### iOS Dependencies
-
-#### System Frameworks
-- ✅ **CoreLocation.framework** - Automatic linking, no action required
-- ✅ **MapKit.framework** - Automatic linking, no action required
-
-#### CocoaPods Dependencies
-- ⚠️ **GoogleMaps (~> 3.5.0)**
-  - Migration Strategy: Direct migration with version update to 8.3.0
-  - Complexity: Moderate (API changes in 4.x+)
-  - Action: Add to Podfile
-
-- ❌ **AFNetworking (~> 2.0)** - **MIGRATION BLOCKER**
-  - Issue: Abandoned library, no Swift 5 support
-  - Solution: Replace with Alamofire 5.x or native URLSession
-  - Impact: High effort (2-3 days to rewrite networking)
-
-### Android Dependencies
-
-#### Gradle Dependencies
-- ✅ **com.google.android.gms:play-services-maps:18.0.0**
-  - Migration Strategy: Direct migration (update to 18.2.0)
-  - Complexity: Low
-  - Action: Add to build.gradle
-
-- ❌ **libs/proprietary-sdk.aar** - **MIGRATION BLOCKER**
-  - Issue: Not publicly available, uses Support Library
-  - Solution: Contact vendor for AndroidX version
-  - Impact: Critical feature unavailable without resolution
-
-## 📋 Dependency Migration Summary
-
-**Total Dependencies:** [Number]
-- ✅ **Direct Migration:** [Number]
-- ⚠️ **Requires Workarounds:** [Number]
-- ❌ **Migration Blockers:** [Number]
-
-**Overall Assessment:** [Straightforward / Moderate / Blocked]
-
-**Critical Actions:**
-1. [Action required before migration can proceed]
-```
-
-See **[reference/dependency-migration.md](reference/dependency-migration.md)** for:
-- Complete dependency identification guide
-- iOS dependencies (CocoaPods, SPM, Frameworks)
-- Android dependencies (Gradle, AAR/JAR, Maven repos)
-- Migration strategies for each dependency type
-- When to flag dependencies as blockers
-- Detailed analysis templates
-
-### 4. Cordova Hooks Analysis (If Applicable)
-
-**Include this section ONLY if the plugin has `<hook>` tags in plugin.xml.**
-
-Provide a detailed analysis of each hook using the three-tiered approach from **[reference/hooks-migration.md](reference/hooks-migration.md)**.
-
-### 5. Architecture Summary
-
-```markdown
-## Cordova Plugin Architecture
-
-**JavaScript API:**
-- Method: `methodName(arg1, arg2, success, error)`
-- Bridge: Uses `cordova.exec()` with callbacks
-- Arguments: Positional array-based
-
-**iOS Implementation:**
-- Class: `MyPlugin` (Objective-C/Swift)
-- Base: Extends `CDVPlugin`
-- Methods: `-(void)methodName:(CDVInvokedUrlCommand*)command`
-- Response: `CDVPluginResult` sent via commandDelegate
-
-**Android Implementation:**
-- Class: `MyPlugin` (Java/Kotlin)
-- Base: Extends `CordovaPlugin`
-- Router: Single `execute()` method routes actions by string
-- Response: `CallbackContext.success/error()`
-
-## Capacitor Plugin Architecture (Target)
-
-**TypeScript API:**
-- Interface: Typed method signatures in `definitions.ts`
-- Bridge: `registerPlugin()` with Promise-based API
-- Arguments: Named object parameters
-
-**iOS Implementation:**
-- Class: `MyPlugin` (Swift preferred)
-- Base: Extends `CAPPlugin`
-- Methods: `@objc func methodName(_ call: CAPPluginCall)`
-- Response: `call.resolve()` / `call.reject()`
-
-**Android Implementation:**
-- Class: `MyPlugin` (Kotlin preferred)
-- Base: Extends `Plugin`
-- Methods: Individual `@PluginMethod` annotated functions
-- Response: `call.resolve()` / `call.reject()`
-```
-
-### 6. Architecture Transformation Visualization
-
-Provide an ASCII diagram showing the Cordova → Capacitor transformation. See **[reference/example-analysis.md](reference/example-analysis.md)** for a complete example.
-
-### 7. Migration Roadmap
-
-```markdown
-## Migration Roadmap
-
-### Phase 1: TypeScript API Layer
-- [ ] Create `src/definitions.ts` with TypeScript interfaces
-- [ ] Create `src/web.ts` with web implementation
-- [ ] Convert callbacks → Promises
-- [ ] Map exec() calls → typed methods
-
-### Phase 2: iOS Native Layer
-- [ ] Convert Objective-C → Swift (recommended)
-- [ ] Change CDVPlugin → CAPPlugin
-- [ ] Update method signatures for CAPPluginCall
-- [ ] Replace CDVPluginResult with call.resolve()
-- [ ] Add @objc decorators
-
-### Phase 3: Android Native Layer
-- [ ] Convert Java → Kotlin (recommended)
-- [ ] Change CordovaPlugin → Plugin
-- [ ] Add @CapacitorPlugin annotation
-- [ ] Convert execute() router → @PluginMethod annotations
-- [ ] Update CallbackContext → PluginCall
-
-### Phase 4: Configuration & Documentation
-- [ ] Document manual native configuration steps
-- [ ] Create package.json with Capacitor metadata
-- [ ] Remove plugin.xml
-- [ ] Update README with setup instructions
-- [ ] Add TypeScript typings
-
-### Phase 5: Migration Completion & Cleanup
-- [ ] Consolidate all migration documentation into single MIGRATION.md
-- [ ] Remove intermediate .md files (status, TODO, implementation notes)
-- [ ] Archive Cordova source files if needed
-- [ ] Final testing and validation
-- [ ] Update plugin README with migration summary
-```
-
-### 8. Next Steps
-
-```markdown
-## Next Steps
-
-This analysis is ready to feed into the **capacitor-plugin-dev** skill for implementation.
-
-**Recommended Workflow:**
-
-**For Simple/Moderate Plugins:**
-1. Review migration blockers and plan workarounds
-2. Use `capacitor-plugin-dev` skill to scaffold the Capacitor plugin
-3. Implement TypeScript API based on the mapping above
-4. Implement native iOS/Android code following the architecture transformation
-5. Document manual configuration steps for users
-
-**For Complex Plugins (RECOMMENDED):**
-1. Review migration blockers and plan workarounds
-2. Use `capacitor-plugin-dev` skill to assess complexity (Step 5)
-3. Follow **incremental platform migration approach**:
-   - Phase 1: TypeScript API layer → User checkpoint
-   - Phase 2: iOS implementation → User inspection and approval
-   - Phase 3: Android implementation → User inspection and approval
-   - Phase 4: Web implementation → Final review
-   - Phase 5: Consolidate documentation and cleanup intermediate files
-4. Document manual configuration steps for users
-
-**⚠️ Complex Plugin Indicators:**
-- > 2000 lines of code
-- > 15 public API methods
-- Multiple language conversions needed
-- Complex hooks (Tier 3 blockers)
-- Heavy native dependencies
-
-**Why Incremental Migration:**
-For complex plugins, migrating one platform at a time allows you to:
-- ✅ Validate approach with working iOS implementation before Android
-- ✅ Get user feedback early and adjust if needed
-- ✅ Debug issues in isolation per platform
-- ✅ Reduce risk of compound errors
-- ✅ Demonstrate tangible progress to the user
-
-**For more details, you can request:**
-- "Show me code examples for [specific method]"
-- "Explain the iOS migration in detail"
-- "What does the Android implementation look like?"
-- "Walk through the conversion of [feature]"
-```
-
-For a complete example analysis, see **[reference/example-analysis.md](reference/example-analysis.md)**.
-
----
-
-## Migration Completion & Documentation Cleanup
-
-After completing the plugin migration, consolidate all intermediate documentation into a single `MIGRATION.md` file at the plugin root and remove temporary documentation files.
-
-### Files to Clean Up
-
-During migration, various .md files may be created:
-- Migration status files (`MIGRATION_STATUS.md`, `CONVERSION_STATUS.md`)
-- Implementation TODO lists (`IMPLEMENTATION_TODO.md`, `iOS_TODO.md`, `ANDROID_TODO.md`)
-- Platform-specific notes (`IOS_NOTES.md`, `ANDROID_NOTES.md`)
-- API mapping documents (`API_MAPPING.md`)
-- Blocker analysis files (`BLOCKERS.md`, `UNSUPPORTED_PATTERNS.md`)
-
-### Consolidated MIGRATION.md Structure
-
-Create a single `MIGRATION.md` at the plugin root with:
-
-- **Overview**: Original plugin, new package name, migration date, complexity
-- **What Changed**: API changes, breaking changes, platform-specific changes
-- **Migration Blockers & Workarounds**: Resolved issues, known limitations
-- **Manual Configuration Required**: iOS setup, Android setup, Capacitor config
-- **Testing Notes**: Platform status, known issues, compatibility
-- **References**: Original plugin, documentation, related issues
-
-### Cleanup Process
-
-1. **Collect information** from all intermediate .md files
-2. **Consolidate** into the single MIGRATION.md using the template above
-3. **Remove** all intermediate documentation files
-4. **Update README.md** with migration summary and link to MIGRATION.md
-5. **Archive Cordova source** (optional) or remove if in version control
-
-### When to Perform Cleanup
-
-Perform cleanup when:
-- ✅ All platforms are implemented and tested
-- ✅ Migration is functionally complete
-- ✅ User has approved the final implementation
-- ✅ No major rework is anticipated
-
-Do NOT cleanup if:
-- ❌ Migration is still in progress
-- ❌ Only some platforms are complete
-- ❌ Major issues remain unresolved
-- ❌ User wants to keep detailed migration notes
-
----
-
-## Migration Analysis Checklist
-
-When analyzing a plugin for migration, verify:
-
-**Blockers & Compatibility:**
-- [ ] Check for `<config-file>` or `<edit-config>` in plugin.xml
-- [ ] Check for hooks (`<hook>` tags)
-  - [ ] If hooks found, analyze each hook script to understand behavior
-  - [ ] Classify each hook as Tier 1 (Capacitor hooks), Tier 2 (custom scripts), or Tier 3 (blocker)
-  - [ ] Document migration strategy for each hook (see [reference/hooks-migration.md](reference/hooks-migration.md))
-  - [ ] Flag Tier 3 hooks as potential migration blockers
-- [ ] Check for `<js-module runs="true">`
-- [ ] Identify framework/dependency injection patterns
-- [ ] Check for Cordova-specific APIs without Capacitor equivalents
-
-**Third-Party Dependencies:**
-- [ ] Identify all `<framework>` tags in plugin.xml
-- [ ] **iOS Dependencies:**
-  - [ ] Identify system frameworks (automatic linking)
-  - [ ] Identify CocoaPods dependencies and versions
-  - [ ] Check for custom/manual frameworks
-  - [ ] Check for Swift Package Manager dependencies
-  - [ ] Verify compatibility with current Swift/Xcode versions
-  - [ ] Check for deprecated or abandoned pods
-  - [ ] Flag incompatible dependencies as blockers
-- [ ] **Android Dependencies:**
-  - [ ] Identify Gradle dependencies and versions
-  - [ ] Identify local AAR/JAR files
-  - [ ] Check for custom Maven repositories
-  - [ ] Verify AndroidX vs Support Library usage
-  - [ ] Check compatibility with current Android SDK
-  - [ ] Flag incompatible dependencies as blockers
-- [ ] **For Each Dependency:**
-  - [ ] Determine migration strategy (direct, update, replace, or blocker)
-  - [ ] Document manual installation steps
-  - [ ] Check for version conflicts with Capacitor core
-  - [ ] Assess licensing and availability issues
-- [ ] Document all dependencies in analysis output (see [reference/dependency-migration.md](reference/dependency-migration.md))
-
-**Architecture Assessment:**
-- [ ] Identify all JavaScript public API methods
-- [ ] Map callback patterns to Promise equivalents
-- [ ] Identify platform-specific implementations (iOS/Android)
-- [ ] Check if iOS uses Objective-C (recommend Swift migration)
-- [ ] Check if Android uses Java (recommend Kotlin migration)
-
-**Migration Complexity:**
-- [ ] Count number of public API methods
-- [ ] Assess complexity of native implementations
-- [ ] Identify external framework dependencies
-- [ ] Check for platform-specific hacks or workarounds
-- [ ] Estimate lines of code to convert
-
-**Documentation Needs:**
-- [ ] List required manual native configuration steps
-- [ ] Document permission requirements
-- [ ] List framework/dependency installation steps
-- [ ] Identify breaking API changes for users
-- [ ] Document hook migration strategy (Tier 1/2/3)
-
----
-
-## Tips for Migration Analysis
-
-1. **Start with plugin.xml** - Identify blockers immediately
-2. **Analyze dependencies early** - Third-party deps can be major blockers
-3. **Flag unsupported patterns early** - Set expectations upfront
-4. **Assess complexity before deep dive** - Simple/Moderate/Complex
-5. **Compare iOS and Android** - Ensure migration strategies align
-6. **Check dependency availability** - Verify all deps are publicly accessible
-7. **Consider language modernization** - Objective-C→Swift, Java→Kotlin
-8. **Document all manual steps** - Critical for migration success (especially deps)
-9. **Identify breaking changes** - Callbacks→Promises affects all consumers
-10. **Check for Cordova plugin dependencies** - May need multiple migrations
-11. **Analyze hooks with three-tier approach** - See [reference/hooks-migration.md](reference/hooks-migration.md)
-12. **Test dependencies in isolation** - Verify compatibility before full migration
-
----
-
-## Limitations
-
-This skill focuses on migration analysis and planning, NOT:
-- ❌ **Performing the actual code refactoring** - Use general development assistance for implementation
-- ❌ **Creating new Capacitor plugins from scratch** - Use the capacitor-plugin-dev skill instead
-- ❌ **Debugging runtime issues** - Provide error logs and request debugging help
-- ❌ **Migrating entire Cordova apps** - This skill is plugin-specific only
-
-**For Next Steps:**
-- After analysis, use capacitor-plugin-dev skill for implementation guidance
-- Request code review assistance for converted code
-- Use general development tools for refactoring and testing
-
----
-
-## Additional Resources
-
-### Reference Documents
-
-- **[reference/dependency-migration.md](reference/dependency-migration.md)** - Complete guide to migrating third-party dependencies (CocoaPods, SPM, Gradle, AAR/JAR)
-- **[reference/hooks-migration.md](reference/hooks-migration.md)** - Complete hooks migration guide with three-tiered approach
-- **[reference/api-mappings.md](reference/api-mappings.md)** - Detailed Cordova to Capacitor code mappings
-- **[reference/unsupported-patterns.md](reference/unsupported-patterns.md)** - Deep dive on unsupported patterns and workarounds
-- **[reference/example-analysis.md](reference/example-analysis.md)** - Complete example migration analysis
-- **[reference/migration-patterns.md](reference/migration-patterns.md)** - Common migration patterns and best practices
-
-### External Documentation
-
-**Cordova:**
-- [Cordova Plugin Reference](https://cordova.apache.org/docs/en/latest/guide/hybrid/plugins/)
-- [iOS Plugin Development Guide](https://cordova.apache.org/docs/en/latest/guide/platforms/ios/plugin.html)
-- [Android Plugin Development Guide](https://cordova.apache.org/docs/en/latest/guide/platforms/android/plugin.html)
-- [plugin.xml Reference](https://cordova.apache.org/docs/en/latest/plugin_ref/spec.html)
-
-**Capacitor:**
-- [Capacitor Plugin Development Guide](https://capacitorjs.com/docs/plugins)
-- [Capacitor Plugin API Reference](https://capacitorjs.com/docs/core-apis/plugin)
-- [iOS Plugin Guide](https://capacitorjs.com/docs/plugins/ios)
-- [Android Plugin Guide](https://capacitorjs.com/docs/plugins/android)
-- [Web Plugin Guide](https://capacitorjs.com/docs/plugins/web)
-- [Capacitor vs Cordova](https://capacitorjs.com/docs/cordova)
-
-**Migration:**
-- [Migrating from Cordova to Capacitor](https://capacitorjs.com/docs/cordova/migrating-from-cordova-to-capacitor)
-- [Capacitor Community Plugins](https://github.com/capacitor-community) (Examples of migrated plugins)
+Open `plugin.xml`. Extract: plugin id, name, version, declared platforms
+(`<platform name="...">`), `<source-file>`/`<header-file>` mappings,
+`<framework>` entries, `<podspec>` blocks, `<config-file>` targets,
+`<edit-config>` targets, `<hook>` declarations, `<dependency>` entries,
+`<preference>` tags, and `<js-module>` exposure (`clobbers` / `merges` /
+`runs`). Record file paths and line numbers for every blocker candidate.
+
+### Phase 3: Analyze Native Dependencies
+
+Apply `references/dependency-migration.md`. For each `<framework>` and
+`<podspec>` pod, decide: direct migration, version update, alternative
+library, or blocker. For each Android Gradle coord, check AndroidX vs Support
+Library and Capacitor's minimum compile SDK. Record manual installation steps
+required after migration.
+
+### Phase 4: Analyze Hooks
+
+Apply the three-tier rule in `references/hooks-migration.md`:
+
+- **Tier 1**, convertible to a Capacitor plugin npm hook
+  (`capacitor:{sync,copy,update}:{before,after}`,
+  `capacitor:{android,ios}:add:{before,after}`).
+- **Tier 2**, convertible to an npm lifecycle script (`postinstall`,
+  `preuninstall`) or a documented manual step.
+- **Tier 3**, interactive prompts, plugin.xml/config.xml mutation, Cordova
+  CLI internals, or anything else with no Capacitor equivalent.
+
+Read each referenced script. Do not classify on filename alone.
+
+### Phase 5: Analyze the JavaScript Bridge
+
+Apply `references/api-mappings.md`. From `www/*.js`, list every public method,
+its positional argument shape, whether it uses success/error callbacks or
+returns a promise, and whether `exec()` is paired with a `cordova.exec()`
+action name. Map each method to a Capacitor `methodName(options): Promise<R>`
+signature.
+
+### Phase 6: Analyze iOS Implementation
+
+Apply `references/api-mappings.md`. From `src/ios/*.{h,m,swift}`, identify the
+`CDVPlugin` subclass, each method matching a JS action, argument extraction
+from `command.arguments`, response construction (`CDVPluginResult`), permission
+flows, and any system frameworks or SDK adapters used. Note where Objective-C
+must be modernized to Swift.
+
+### Phase 7: Analyze Android Implementation
+
+Apply `references/api-mappings.md`. From `src/android/**/*.{java,kt}`,
+identify the `CordovaPlugin` subclass, the `execute()` router, action
+strings, argument extraction (`args.getString(i)`), response paths
+(`CallbackContext.success/error`), permission flows, and any Activity Result
+patterns. Note where Java must be modernized to Kotlin.
+
+### Phase 8: Assess Complexity
+
+Apply `references/complexity-assessment.md`. Score the plugin on method count,
+LOC, dependency footprint, hook tier mix, language modernization, blocker
+count, and Capacitor-equivalent reuse. Output one of: `simple`, `moderate`,
+`complex`, `blocked`. `blocked` means the user must resolve issues before
+generator handoff.
+
+### Phase 9: Produce the Migration YAML
+
+Apply `references/using-plugin-generator.md`. Build the YAML against the
+generator's `references/input-contract.md`, base block (`plugin`,
+`platforms`, `api`, `permissions`, `dependencies`) plus the optional
+`migration:` block (`source`, `complexity`, `output_mode`, `blockers`,
+`warnings`, `language_modernization`, `source_files`, `hooks`,
+`cordova_to_capacitor_map`). Pin wire-format strings to the official
+Capacitor equivalent when one exists.
+
+### Phase 10: User Checkpoint
+
+Present a short human summary alongside the YAML: complexity, blockers,
+warnings, manual setup, recommended output mode, and any Capacitor
+equivalent being mirrored. Stop and wait for confirmation if blockers or
+Tier 3 hooks are non-empty.
+
+### Phase 11: Invoke `capacitor-plugin-generator`
+
+Apply `references/using-plugin-generator.md`. After Phase 10 checkpoint
+approval, invoke the `capacitor-plugin-generator` skill via the Skill
+tool in structured mode, passing the Phase 9 YAML as the input
+contract. The generator runs its own playbook (scaffold, TypeScript
+contract, web, iOS, Android, sample app, docgen, verify); this skill
+does not re-inspect Cordova source during or after the generator run.
+
+For **Complex** plugins, invoke the generator in **incremental mode**:
+one platform at a time (TypeScript contract → iOS → Android → web)
+with user checkpoints between each platform, rather than handing the
+full YAML in a single call. This avoids context overflow and lets the
+user inspect each platform's output before the next runs.
+
+If the generator rejects the YAML (missing fields, invalid wire-format
+literals, etc.), return to Phase 9 here. Fix the YAML in this skill and
+re-invoke. Never hand-edit the generator's output to paper over
+contract drift.
+
+### Phase 12: Post-Migration Cleanup
+
+Apply `references/post-migration-cleanup.md`. After the generator produces a
+working scaffold, consolidate intermediate notes into a single `MIGRATION.md`
+at the plugin root, archive or remove the original Cordova source per the
+chosen output mode, and update the README with the consumer-facing breaking
+changes (callbacks → promises, positional → named arguments, manual native
+setup).
+
+Cross-check that every `migration.notes` and `migration.warnings`
+entry is bucketed (plugin packaging / host-app build configuration /
+consumer runtime config) per the Agent Behavior rule. The
+`MIGRATION.md` should list only items that fall in buckets 2 or 3.
+Plugin-packaging items are transparent to consumers and do not belong
+in the migration trail.
+
+## Best Practices
+
+### DO
+
+- ✅ Read `plugin.xml` first and ground every claim in actual XML, source
+  paths, or hook script content. Cite line numbers for blockers.
+- ✅ Treat the generator's input contract as authoritative. Build the YAML
+  against `capacitor-plugin-generator/references/input-contract.md`.
+- ✅ Reuse wire-format strings from an official Capacitor equivalent when one
+  exists. Mirror enum casing, event names, and method names exactly.
+- ✅ Classify hooks by reading the referenced script, not by filename.
+- ✅ Default to Mode B (side-by-side). Move to Mode A only on explicit user
+  opt-in with a writable working copy.
+- ✅ Stop at the Phase 10 checkpoint if blockers or Tier 3 hooks exist.
+- ✅ Capture both blockers and warnings; only blockers stop handoff.
+- ✅ Note manual native setup steps consumers will need after migration
+  (Info.plist keys, AndroidManifest entries, Podfile / Gradle additions).
+
+### DON'T
+
+- ❌ Emit native Capacitor code (Swift, Kotlin, Java, TypeScript) from
+  this skill. The generator owns code emission.
+- ❌ Invent YAML fields or rename ones the generator already defines.
+- ❌ Re-derive wire-format strings from human-friendly names when an
+  official Capacitor equivalent exists. Read its `definitions.ts`.
+- ❌ Classify a hook as Tier 1/2 without opening the referenced script.
+- ❌ Emit a YAML plan that lists `complexity: simple` while hiding a
+  proprietary AAR or interactive setup hook.
+- ❌ Add Capacitor-version-specific guidance here, the generator skill owns
+  generator-side rules (name parity, Java filename, `notifyListeners`
+  visibility, etc.). Reference, don't duplicate.
+- ❌ Invoke the generator silently. Phase 10 is a mandatory user
+  checkpoint; do not skip it.
+- ❌ Invoke the generator with blockers or Tier 3 hooks unresolved.
+- ❌ Commit, push, or publish generator output from this skill.
+
+## Error Handling
+
+| Symptom | Fix |
+| --- | --- |
+| `plugin.xml` missing or malformed | Stop. Ask for the canonical plugin source. Do not infer a contract from README marketing copy. |
+| Source files referenced by `plugin.xml` are not present on disk | Stop. Report missing files by path. The plan is incomplete without them; do not proceed to Phase 9. |
+| Hooks reference scripts that cannot be opened or are obfuscated | Classify as Tier 3 and add to `migration.blockers` with the script path. Do not guess based on the hook type. |
+| Plugin declares `<framework>` for a private/proprietary AAR or `.framework` requiring runtime credentials the user does not have | Record as a blocker. Note vendor contact requirement. Do not silently swap for a public alternative. |
+| Plugin vendors a binary in-tree (e.g., `src/ios/frameworks/Foo.xcframework`, `src/android/libs/Foo.aar`) but it is publicly distributed | Not a blocker. Carry the binary forward and record its path under `migration.source_files.{ios,android}`. The generator copies it into the Capacitor plugin's `ios/` or `android/libs/` directory. |
+| Plugin pulls Android deps from a custom Maven repository (Azure DevOps, JFrog, etc.) | Record the URL under `migration.dependencies.android.maven_repos`. Warning, not blocker, when the URL is reachable without auth. Blocker when auth is required and credentials are not provided. |
+| Plugin uses Support Library (`android.support.*`) coordinates | Record as a blocker unless Jetifier acceptance is confirmed by the user. Capacitor expects AndroidX. |
+| Cordova plugin has an official Capacitor equivalent (`@capacitor/<name>`) | Read the equivalent's `definitions.ts` and native source. Pin method names, enum values, event names, and error codes in the YAML. Add the equivalent's package as `migration.notes` for the reviewer. |
+| Plugin declares both `<hook>` entries and `package.json` `scripts.capacitor:*` entries (hybrid plugin) | The Capacitor scripts already exist. Record them as Tier 1 "already converted" hooks. Ask the user whether to reuse, rewrite, or merge them with any newly migrated Cordova hooks. |
+| Plugin uses `<config-file>` to mutate `AndroidManifest.xml` with `<uses-permission>`, `<meta-data>`, `<queries>`, or `<provider>` | **Goes in the plugin's own `android/src/main/AndroidManifest.xml`**, Gradle manifest merger merges into the host app automatically. No host-app step. Record under `migration.notes` for the generator to emit. |
+| Plugin uses `<config-file>` to mutate `Info.plist` with an Apple-required privacy string (`NSCameraUsageDescription`, `NSLocationWhenInUseUsageDescription`, `NSMicrophoneUsageDescription`, etc.) | **Host-app Info.plist**, Apple App Store requires these on the host app's plist, not the plugin's. Record under `migration.notes` and document a copy-paste snippet in `MIGRATION.md`. |
+| Plugin uses `<config-file>` to mutate `Info.plist` with consumer-specific values (Apple Pay merchant ID, OAuth client ID, analytics key) via `$VAR` install-time placeholders | **Runtime config JSON file** pattern is strongly preferred: a `<Plugin>Configuration.json` consumed by a hybrid `capacitor:sync:after` script. Reuse an existing script from the Cordova plugin if present, else propose a one-screen template. Keeps consumer-specific values out of the plist entirely. |
+| Plugin uses `<config-file>` to mutate entitlements plists (`*-Debug.plist`, `*-Release.plist`, `*-Entitlements.plist`) for capabilities like `com.apple.developer.in-app-payments`, `aps-environment`, `com.apple.security.application-groups` | **Host-app capability + entitlement.** Record under `migration.notes`; document the exact Xcode capability the consumer must enable (Apple Pay, Push Notifications, App Groups, etc.) and the entitlement value in `MIGRATION.md`. |
+| Plugin declares `<framework>` with `weak="true"` for iOS | **Plugin's own podspec.** Record in `dependencies.ios.system_frameworks` and add a `migration.notes` line so the generator emits `s.weak_framework` instead of `s.framework`. No host-app step. |
+| Plugin uses `<edit-config>` with `mode="merge"` to add an `android:requestLegacyExternalStorage` or similar attribute to the host `<application>` element | **Host-app AndroidManifest** if the attribute applies to the host app; otherwise plugin's own AndroidManifest. Record in `migration.notes` with the exact attribute and parent so `MIGRATION.md` can include a copy-paste snippet. |
+| Plugin uses `<js-module runs="true">` | Add to `migration.warnings`. Recommend an explicit `initialize()` method or constructor-side init in the web layer. |
+| Plugin has multiple `<js-module>` entries with multiple `<clobbers>` targets (e.g., constants module + main module) | Collapse into a single `registerPlugin()` registration. Export constants from `definitions.ts` next to the plugin interface. Capacitor has no analog to multi-clobber. |
+| Plugin includes Android resource files via `<source-file target-dir="res/...">` | Record under `migration.source_files.android` with the destination `res/` subpath. The generator copies them into `android/src/main/res/<subpath>/`. Common for `FileProvider` paths and themes. |
+| Plugin uses `<preference name="..." default="...">` with install-time variable substitution (`${VAR}` in plugin.xml) referenced inside `<config-file target="*-Info.plist">` or `AndroidManifest.xml` | Prefer the **runtime config JSON file** pattern (consumer drops their values into a `<Plugin>Configuration.json` consumed by a hybrid `capacitor:sync:after` script). Reuse an existing script from the Cordova plugin if present. Fallback: `capacitor.config.json` runtime config under `plugins.<PluginJSName>`. |
+| Plugin uses `<preference name="ANDROIDX_CORE_VERSION" default="1.18.0">` (or similar build-time-only version pins) referenced inside the plugin's own `build.gradle` | **Plugin's own build.gradle**, pin the version literally in the generated Gradle file. No host-app step, no runtime config. Consumer never sees this. |
+| Plugin's native handler parses a stringified JSON blob (`Gson.fromJson`, `JSONObject(args.getString(0))`) | Map the parsed shape to a strongly-typed `api.types` interface, never `string`. Capture the schema from the native parsing site (Kotlin data class or Swift struct). |
+| One JS method dispatches to multiple `cordova.exec()` action names based on `typeof param` (e.g., `vibrate(num)` vs `vibrate([...])`) | Split into multiple typed Capacitor methods, `vibrate({ duration })`, `vibrateWithPattern({ pattern, repeat })`, `cancelVibration()`. Record the split in `migration.cordova_to_capacitor_map` and add to `migration.warnings` as a consumer-facing breaking change. |
+| Generator rejects YAML with "bad indentation" or "mapping entry" parse error | A `cordova_to_capacitor_map` entry contains unquoted JS syntax (`(`, `{`, `:`, etc.). Quote every `cordova:` and `capacitor:` value as a YAML string. The plan must be re-emitted; the generator cannot load it as-is. |
+| Cordova native source requests runtime permissions but the Cordova JS surface has no permission methods | Add `checkPermissions()` (`Promise<PermissionStatus>`) and `requestPermissions(options?)` (`Promise<PermissionStatus>`) to `api.methods`, and a `PermissionStatus` interface to `api.types`. Without these the migrated plugin will violate Capacitor convention and consumers will expect them. |
+| Cordova native source has a helper class for metadata extraction (`ExifHelper`, `MimeTypeHelper`, etc.) but the Cordova JS docs don't list the resulting fields | Read the native response-construction site. Add the metadata fields (typically `exif?: any`, `mimeType?`, `size?`) to the result type. The Cordova JS docs frequently understate what the native side actually returns. |
+| Official Capacitor equivalent's native source is more than 3× the LOC of the Cordova source | Add a `migration.notes` entry warning the reviewer that a literal port will leave platform-specific behavior unimplemented (e.g., iOS `CHHapticEngine` over `AudioServicesPlaySystemSound`, Android pattern-based haptics over single-shot vibration). Recommend reviewing whether to retarget consumers to the official package. |
+| Cordova plugin.xml has `<platform name="ios" package="swift">` or any `<pod ... nospm="true">` | Plugin already ships SPM support alongside CocoaPods. Lift its `Package.swift` dependencies into `dependencies.ios.spm`; lift only pods without `nospm="true"` into `dependencies.ios.cocoapods`. Capacitor port must ship both `Package.swift` and `.podspec`. |
+| Plugin declares `<dependency>` on another Cordova plugin | Resolve the dependency target separately. If it lacks a Capacitor equivalent or migration plan, treat as blocker for the current plugin. |
+| Plugin's iOS source is Objective-C only | Record `migration.language_modernization.ios: { from: objective_c, to: swift }`. Note bridging headers consumers may still need. |
+| Plugin's Android source is Java only | Record `migration.language_modernization.android: { from: java, to: kotlin }`. The generator will still produce Java if the user asks, but Kotlin is the default recommendation. |
+| YAML rejected by the generator | Re-read `capacitor-plugin-generator/references/input-contract.md`. Fix the YAML in this skill, not in the generator. Do not work around the contract. |
+| Generator flags missing wire-format strings | Re-read the official Capacitor equivalent's `definitions.ts`. Update `api.types` values verbatim. Do not "translate" from the human-friendly names. |
+| User requests Mode A but the working copy is not under version control or is read-only | Refuse Mode A. Recommend Mode B. Recovery from a botched in-place move without VCS is manual. |
+| Plugin advertises features the source does not implement | Trust the source. Record the advertised-but-unimplemented features under `migration.warnings`. Do not fabricate API methods to match documentation. |
+| Hook classified as Tier 1 by filename but actually interactive | Read the script source, not just the `<hook>` `name` attribute. Anything that prompts via stdin, opens a TTY, or shells to `read` / `prompt` is Tier 3. |
+| Dep marked "direct migration" but the pod / Gradle artifact is abandoned | Cross-check the latest release date and Swift / AndroidX compatibility before marking as direct. Anything not updated in 3+ years moves to "replace" or "blocker". |
+| Complexity assessed "Simple" but plugin has 15+ public API methods | Always count public API methods. Any plugin with more than 10 public methods is at least Moderate, regardless of other signals. |
+| Blocker missed during analysis | Always scan `plugin.xml` for `<config-file>`, `<edit-config>`, `<js-module runs="true">`, `<hook>`, and `<dependency>`, these are the non-negotiable blocker candidates. Re-scan before Phase 9 if anything in the YAML looks too tidy. |
+| Generator re-reads Cordova source during Phase 11 | The YAML plan is incomplete. Re-validate against `capacitor-plugin-generator/references/input-contract.md`; include JS API signatures, native method mappings, permissions, dependencies, and blockers inline so the generator never has to look at the Cordova tree. |
+| User halts at checkpoint due to a blocker they will not accept | Document the blocker in `MIGRATION.md` and stop. Do not invoke the generator. Capture the rejection reason so the next attempt can address it. |
+| Complex plugin overwhelms generator context on a single invocation | Use **incremental mode**: invoke the generator once per platform (web → iOS → Android → final) with user checkpoints between each, not once for the whole plugin. See `references/using-plugin-generator.md`. |
+| Mode A relocation conflicts with files in the Cordova repo (top-level name collision) | Halt the chain. Either resolve manually with the user (rename, delete, or move conflicting files), or fall back to Mode B by re-running Phase 11 against a sibling directory. |
+
+## Related Skills
+
+- `capacitor-plugin-generator` *(required downstream dependency)*:
+  Phase 11 invokes this skill via the Skill tool in structured mode
+  with the YAML plan produced in Phase 9. The generator's
+  `references/input-contract.md` is the authoritative shape for handoff.
+  This skill conforms and cites it but does not duplicate any
+  generator-side rules.
+
+## References
+
+- `references/output-modes.md`: Mode A (in-place with `.cordova-archive/`) vs Mode B (side-by-side) directory layouts and `git mv` patterns.
+- `references/unsupported-patterns.md`: `<config-file>`, `<edit-config>`, `<hook>`, `<js-module runs>`, preferences, permissions, and per-pattern blocker thresholds.
+- `references/dependency-migration.md`: CocoaPods, SPM, system frameworks, Gradle coordinates, AAR/JAR, custom Maven repos, and per-dependency blocker thresholds.
+- `references/hooks-migration.md`: Three-tier hook classification (Tier 1 Capacitor hooks, Tier 2 npm scripts, Tier 3 blocker) with script analysis workflow.
+- `references/api-mappings.md`: JavaScript bridge, iOS (`CDVPlugin` → `CAPPlugin`), Android (`CordovaPlugin` → `Plugin`), and plugin.xml → package.json conversion.
+- `references/migration-patterns.md`: Callback → Promise, permission handling, multi-platform configuration, and consistent error handling across platforms.
+- `references/complexity-assessment.md`: Scoring rubric for `simple` / `moderate` / `complex` / `blocked` and the inputs that move a plugin between buckets.
+- `references/using-plugin-generator.md`: Building the YAML against `capacitor-plugin-generator/references/input-contract.md`, the `migration:` optional block, and the Phase 11 invocation pattern (standard vs incremental mode).
+- `references/post-migration-cleanup.md`: Consolidating intermediate notes into `MIGRATION.md`, the Mode A relocation flow, archiving Cordova source, updating README, and the consumer-facing breaking-change checklist.
+- `references/example-analysis.md`: Full worked example end-to-end, plugin.xml read, dependency analysis, hooks classification, YAML output, and generator handoff.
