@@ -60,6 +60,44 @@ Arguments can be variable references (`$VAR_NAME`) or literal values:
 }
 ```
 
+### Limitation: empty string comparisons are not supported
+
+Conditions cannot compare a variable against an empty string literal (`''`). The following is **invalid** and will fail validation:
+
+```json
+"condition": "ne($SOME_STRING, '')"
+```
+
+This is only a problem when a string variable has an empty-string default — if the default is a meaningful value, the condition is unnecessary entirely.
+
+**Correct pattern — use a boolean flag instead.**
+
+When the intent is "apply this action only if the user provided a value", add a companion boolean variable and condition on that:
+
+```json
+"variables": {
+  "ENABLE_NOTIFICATION_COLOR": {
+    "type": "boolean",
+    "default": false
+  },
+  "NOTIFICATION_COLOR": {
+    "type": "string",
+    "default": ""
+  }
+}
+```
+
+```json
+{
+  "condition": "eq($ENABLE_NOTIFICATION_COLOR, true)",
+  "resFile": "values/strings.xml",
+  "target": "resources/string[@name=\"notification_color\"]",
+  "replace": "<string name=\"notification_color\">$NOTIFICATION_COLOR</string>\n"
+}
+```
+
+The developer sets `ENABLE_NOTIFICATION_COLOR` to `true` in ODC Studio when they also supply a value for `NOTIFICATION_COLOR`. When `ENABLE_NOTIFICATION_COLOR` is `false` (the default), the action is skipped entirely.
+
 ---
 
 ## See also: supplying variable values in ODC
