@@ -57,6 +57,8 @@ requiring a `file` field. Exactly one operation per entry.
 `target` is an XPath-like path (e.g. `"manifest"`, `"manifest/application"`).
 `delete` uses a full XPath expression directly (e.g. `"//intent-filter"`).
 
+> **`attrs` values must be strings.** Boolean and number variable references are not valid in `attrs` and will fail validation. To set an attribute to a boolean or numeric value, use `inject` or `merge` with the full XML element instead.
+
 ```json
 "android": {
   "manifest": [
@@ -226,6 +228,8 @@ Modifies the content of JSON files within the Android project.
 Modifies arbitrary XML files within the Android project. Same operations as
 `manifest` plus `replace`. Use `file` for project-relative paths or `resFile`
 for paths relative to the `res` folder.
+
+> **Do not use `xml` for `AndroidManifest.xml` changes — use the `manifest` action instead.** `manifest` validates attribute value types at parse time; `xml` does not, so type errors (e.g. boolean in `attrs`) will slip through validation silently and may produce incorrect output at build time.
 
 | Operation | Required fields | Description |
 |-----------|----------------|-------------|
