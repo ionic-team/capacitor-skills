@@ -186,6 +186,17 @@ version mismatches.
   a `gradle` action for `minSdkVersion` if the required value is **greater than
   29**, and include a note in the README that the app's minimum Android version
   is being raised above the ODC default.
+
+  **When the README contains a developer-facing `minSdkVersion` instruction that
+  is suppressed by the ODC floor**, add a brief note to the generated README so
+  the developer is not left wondering whether they need to act. Place it in
+  `## What requires additional setup` with reason "Automatically satisfied by
+  MABS 12+" and recommended approach "No action required — MABS 12+ enforces a
+  minimum SDK of 29, which already meets this requirement." Example row:
+
+  | Hook / element | Reason not mapped | Recommended approach |
+  |----------------|-------------------|----------------------|
+  | `minSdkVersion = 26` (plugin README) | ODC/MABS 12+ floor (SDK 29) already satisfies this | No action required |
 - **Android `compileSdkVersion` and `targetSdkVersion`:** MABS 12+ (ODC)
   enforces `compileSdkVersion` 35 and `targetSdkVersion` 36. Skip any `gradle`
   build action that sets these values at or below those floors — they are

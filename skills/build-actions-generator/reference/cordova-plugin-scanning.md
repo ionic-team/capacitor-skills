@@ -121,6 +121,13 @@ Android frameworks with other `type` values (e.g. `type="system"`) are silently
 ignored by Capacitor CLI and have no build action equivalent. No build action
 required. Skip these elements.
 
+**Do not generate iOS `frameworks` build actions for `<framework>` elements in
+`plugin.xml`**, even when they reference well-known system frameworks such as
+`AssetsLibrary.framework`, `MobileCoreServices.framework`, or
+`CoreLocation.framework`. These are handled exclusively by Capacitor CLI during
+sync. Generating a `frameworks` build action for them is over-generation and
+will duplicate what the build pipeline already applies.
+
 **Gradle build action scope:** The plugin's own Gradle file (applied via
 `<framework type="gradleReference">`) is merged by Capacitor CLI during sync.
 Never generate `gradle` build actions to replicate content that is already in
