@@ -64,6 +64,12 @@ Look for these sections:
 - **Gradle** or **build.gradle** configuration
 - **Xcode** or **Xcode project** changes
 
+**These signals do not need a dedicated section heading.** A single inline
+sentence anywhere in the README — e.g. "configure the Privacy - Camera Usage
+Description in your Info.plist" or "add the CAMERA permission to your
+AndroidManifest" — is a valid plist/manifest signal and must be mapped to a
+build action just as if it appeared under a dedicated setup section.
+
 ### Mapping documentation content to build actions
 
 | README content | Build action |
@@ -123,16 +129,22 @@ dependencies are already declared in the plugin's own build files.
 
 ### Bundled AndroidManifest.xml
 
-If `android/src/main/AndroidManifest.xml` exists with content (permissions,
-features, activities, services, providers), **Capacitor CLI merges it into the
-app's manifest during sync**. Do not create build actions for entries already
-present there — they are handled automatically.
+**Before writing any `manifest` build action, open
+`android/src/main/AndroidManifest.xml` and read its contents.** If the entry
+you are about to generate is already present there, **do not generate a build
+action for it** — Capacitor CLI merges the plugin's bundled manifest into the
+app manifest automatically during sync, so the entry is already covered.
 
 Only create a `manifest` build action for entries that are:
-- Required based on README instructions or source analysis but absent from the
-  bundled manifest
+- Required based on README instructions or source analysis but **absent** from
+  the bundled manifest
 - Conditionally needed depending on app configuration — use a variable with a
   `condition`; see [reference/variables-and-conditions.md](reference/variables-and-conditions.md)
+
+Common example: many camera or barcode plugins already declare
+`<uses-permission android:name="android.permission.CAMERA" />` in their
+bundled `android/src/main/AndroidManifest.xml`. Do not generate a `manifest`
+build action for this permission — it is already handled.
 
 ### Gradle files
 
