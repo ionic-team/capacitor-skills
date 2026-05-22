@@ -176,11 +176,28 @@ Quick reference (shown under `platforms.ios` — always wrap in `{ "platforms": 
 
 Plugin root is the path argument if one was given, otherwise the current directory. Before asking the developer any questions, check for existing signals in the plugin:
 
-- If `input-contract.yaml` exists at the plugin root, read its `hooks` section
-  to derive which build actions are required.
-- If the contract is absent or partial, scan the plugin source:
+- If `input-contract.yaml` exists at the plugin root, read it against the full
+  `capacitor-plugin-generator/references/input-contract.md` schema and extract
+  the following relevant sections:
+  - `migration.hooks` (`tier_1` / `tier_2` / `tier_3`) — hook classification
+    for build-action derivation.
+  - `dependencies.android.gradle` and
+    `dependencies.ios.{cocoapods,spm,system_frameworks}` — dependency-based
+    actions (Gradle patches, framework entries).
+  - `permissions.android` and `permissions.ios` — permission actions
+    (manifest `<uses-permission>`, plist usage descriptions).
+  - `plugin.name` — for the README title.
+  - All other fields (`api.methods`, `api.types`, `api.events`, etc.) are
+    irrelevant — ignore silently.
+- **Always also scan plugin source directly**, even when the contract is
+  present. The contract is a starting point; source scanning catches signals
+  the contract may not capture or may be stale on:
   - **Cordova plugins:** parse `plugin.xml` — see **[reference/cordova-plugin-scanning.md](reference/cordova-plugin-scanning.md)** for the full element-to-action mapping and hook classification guide.
   - **Capacitor plugins:** scan plugin documentation, `package.json`, and native source files (Java/Kotlin and Swift/Objective-C) — see **[reference/capacitor-plugin-scanning.md](reference/capacitor-plugin-scanning.md)** for the full scanning guide.
+- When invoked as part of the `cordova-plugin-migrator` ODC flow (Phase 11a),
+  the output (`build-actions/`) is written to the **Capacitor plugin
+  directory**, not the Cordova source tree. The `cordova-plugin-migrator`
+  supplies the Capacitor plugin path as the working directory or argument.
 
 ### 2. Gather requirements
 
