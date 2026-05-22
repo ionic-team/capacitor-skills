@@ -66,6 +66,13 @@ the plugin root:
 - `build-actions/buildAction.json` — the build action configuration
 - `build-actions/README.md` — human-readable documentation (see Generation Guidelines step 5)
 
+**Always create `build-actions/` at the top level of the directory provided
+(or the current working directory if no path argument was given).** Never
+create it inside a subdirectory such as `plugin/`, `android/`, or `ios/`,
+even when scanning source files that live in those subdirectories. If the
+plugin repo has a nested structure (e.g. `plugin/android/`, `plugin/ios/`),
+the output still goes at the repo root: `build-actions/buildAction.json`.
+
 ```json
 {
   "variables": { },       // optional — input parameters for the build action
