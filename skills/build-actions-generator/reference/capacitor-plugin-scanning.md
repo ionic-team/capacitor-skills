@@ -161,6 +161,22 @@ app-level `build.gradle` is required as a setup step. Examples of such steps:
 Check `android/build.gradle` and `android/variables.gradle` to confirm whether
 the plugin already provides the entry before generating a build action for it.
 
+**`variables.gradle` — version variable declarations:** Many plugins ship an
+`android/variables.gradle` file that declares SDK version variables (e.g.
+`playServicesAdsVersion = "23.0.0"`). These variables are consumed by the
+plugin's own `build.gradle` at compile time. If the plugin's README instructs
+the developer to set these variables in the app-level `variables.gradle`, they
+require a `gradle` build action targeting `variables.gradle` with
+`insertType: "variable"`. Read `android/variables.gradle` during scanning and
+check the README for any instruction to set version variables at the app level.
+
+**When to hardcode vs. expose as a variable:** Hardcode the version value from
+the plugin source (e.g. `"playServicesAdsVersion": "23.0.0"`). Do not expose
+internal dependency version pins as developer-facing variables unless the
+plugin README explicitly presents them as developer-configurable. Surfacing them
+as variables creates unnecessary ODC Studio configuration burden and invites
+version mismatches.
+
 **ODC minimum SDK constraints — do not generate build actions that violate these floors:**
 
 - **Android `minSdkVersion`:** MABS 12+ (ODC) enforces a minimum of 29. If a
@@ -228,6 +244,13 @@ description text as a variable so the developer can customize it — see
 [reference/variables-and-conditions.md](reference/variables-and-conditions.md).
 Infer a sensible default from context where possible (e.g. camera plugin →
 `"Used for scanning"`).
+
+**Fixed (non-variable) plist entries:** Not every plist entry is
+developer-configurable. Boolean flags and fixed identifiers required by the SDK
+(e.g. `GADIsAdManagerApp: true`, `SKAdNetworkItems` with a known network ID)
+must still be included as hardcoded plist entries. Do not skip them simply
+because they have no variable — they are required for the SDK to function
+correctly.
 
 ### Entitlements
 

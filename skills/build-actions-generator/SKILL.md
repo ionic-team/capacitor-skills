@@ -97,6 +97,7 @@ At least one of `android` or `ios` must be present under `platforms`.
 See **[reference/variables-and-conditions.md](reference/variables-and-conditions.md)** for full syntax and examples.
 
 - **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) declared by the plugin developer; consuming apps supply values via the extensibility configuration `parameters` block. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
+- **Platform-specific variants** — if the same logical value (e.g. an App ID, API key) is used on both Android and iOS but is typically distinct per platform, expose **separate variables** with `_ANDROID` and `_IOS` suffixes (e.g. `ADMOB_APP_ID_ANDROID`, `ADMOB_APP_ID_IOS`). Do not merge them into a single shared variable — the developer must be able to configure each platform independently.
 - **Usage** — reference with `$VAR_NAME` anywhere in string values: `"android:name": "com.example.$APP_NAME"`
 - **Conditions** — add a `condition` field to any action entry (except `displayName`, `productName`, and `appName`) to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
 
