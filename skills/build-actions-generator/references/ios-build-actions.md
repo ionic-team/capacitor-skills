@@ -162,6 +162,10 @@ object.
 | `replace` | no | `true` overwrites existing keys; `false` (default) merges |
 | `file` | no | Specific plist file to update; defaults to `Info.plist` |
 
+**When to use `replace: true` vs `replace: false`:**
+- Use `replace: true` for plugin-specific configuration keys (SDK identifiers, feature flags, App IDs) where the plugin's value must take precedence over anything the app may have set. This ensures the key is always written with the correct value on every build.
+- Use `replace: false` for keys where the app's existing value should be preserved if present — typically usage description strings (`NSCameraUsageDescription`, etc.) where the app may have its own copy already set.
+
 **Conditional:** Yes
 
 ```json
