@@ -75,6 +75,13 @@ when a boolean preference is set to a specific value — for example, injecting
 `firebase_analytics_collection_enabled = false` only when
 `ANALYTICS_COLLECTION_ENABLED` is `false`.
 
+### Why this appears unmappable
+
+The hook has two branches: inject the entry (non-default state) or do nothing
+(default state). Without a delete operation in `manifest`, it can seem like the
+"do nothing" branch cannot be expressed. The correct approach makes the action
+conditional so it only runs when needed.
+
 ### Two valid approaches
 
 **Option A — Conditional injection (hardcoded value):** Only inject the entry
@@ -160,6 +167,77 @@ Do **not** split into two entries with `condition: eq($X, true)` and
 
 ---
 
+## Pattern: Android string resources declared in plugin README
+
+### Scenario
+
+A Capacitor plugin documents Android configuration through a `strings.xml` snippet
+in its README — for example, a notification channel name or notification color
+that the native Android code reads from `res/values/strings.xml` at runtime. The
+README shows the exact `<string name="...">` keys the plugin expects, and
+instructs developers to add those entries to their app's `strings.xml`.
+
+### Why this appears unmappable
+
+There is no `res` action type. A developer reading "add this to `strings.xml`"
+without knowing the correct build action type may conclude there is no way to
+automate this, or may invent a non-existent action.
+
+### Correct approach
+
+Use the `xml` action with `resFile` pointing at the target resource file inside
+the `res` folder. The `resFile` path is relative to the Android project's `res`
+directory. Use `merge` targeting the parent `resources` element — this safely
+appends the string entry whether or not the key already exists.
+
+```json
+"android": {
+  "xml": [
+    {
+      "resFile": "values/strings.xml",
+      "target": "resources",
+      "merge": "<string name=\"my_plugin_channel_name\">$NOTIFICATION_CHANNEL_NAME</string>\n"
+    }
+  ]
+}
+```
+
+For optional string values (e.g. a notification color that should only be set
+when the developer opts in), use a boolean flag variable and a `condition`:
+
+```json
+"variables": {
+  "NOTIFICATION_CHANNEL_NAME": { "type": "string", "default": "My Channel" },
+  "ENABLE_NOTIFICATION_COLOR": { "type": "boolean", "default": false },
+  "NOTIFICATION_COLOR":        { "type": "string", "default": "" }
+}
+```
+
+```json
+"android": {
+  "xml": [
+    {
+      "resFile": "values/strings.xml",
+      "target": "resources",
+      "merge": "<string name=\"my_plugin_channel_name\">$NOTIFICATION_CHANNEL_NAME</string>\n"
+    },
+    {
+      "resFile": "values/strings.xml",
+      "condition": "eq($ENABLE_NOTIFICATION_COLOR, true)",
+      "target": "resources",
+      "merge": "<string name=\"my_plugin_notification_color\">$NOTIFICATION_COLOR</string>\n"
+    }
+  ]
+}
+```
+
+The string resource key names (e.g. `my_plugin_channel_name`) must match
+exactly what the plugin's native Java/Kotlin code reads via
+`context.getString(R.string.my_plugin_channel_name)`. Read these from the
+README's `strings.xml` snippet — do not guess or invent key names.
+
+---
+
 ## Pattern: Local Maven repository for plugin-bundled native libraries
 
 ### Scenario
@@ -209,5 +287,6 @@ visible to the consuming project's dependency resolver.
 ```
 
 The double quotes inside the `url` value are part of the Groovy string — Gradle
-requires double quotes for GString interpolation. Replace `capacitor-my-plugin` with the actual plugin project name (the Gradle
-project identifier, which matches the folder name under `node_modules`).
+requires double quotes for GString interpolation. Replace `capacitor-my-plugin`
+with the actual plugin project name (the Gradle project identifier, which
+matches the folder name under `node_modules`).
