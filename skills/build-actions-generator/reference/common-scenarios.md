@@ -75,11 +75,11 @@ when a boolean preference is set to a specific value — for example, injecting
 `firebase_analytics_collection_enabled = false` only when
 `ANALYTICS_COLLECTION_ENABLED` is `false`.
 
-### Correct approach
+### Two valid approaches
 
-Map to a `manifest` build action with a `condition`. The value in the injected
-XML is hardcoded (not `$VARIABLE`) because the entry is only relevant at one
-specific value — there is no need to pass the variable into the XML string.
+**Option A — Conditional injection (hardcoded value):** Only inject the entry
+when the value differs from the SDK default. The injected XML hardcodes the
+non-default value since the entry is only relevant in that one state.
 
 ```json
 "android": {
@@ -93,6 +93,27 @@ specific value — there is no need to pass the variable into the XML string.
   ]
 }
 ```
+
+**Option B — Unconditional injection (variable value):** Always inject the
+entry using the variable, explicitly declaring the state on every build
+regardless of the value.
+
+```json
+"android": {
+  "manifest": [
+    {
+      "file": "AndroidManifest.xml",
+      "target": "manifest/application",
+      "inject": "<meta-data android:name=\"firebase_analytics_collection_enabled\" android:value=\"$ANALYTICS_COLLECTION_ENABLED\" />\n"
+    }
+  ]
+}
+```
+
+Both are correct. Option A relies on the SDK default covering the non-injected
+case (acceptable when the SDK default matches the variable's default value).
+Option B is more explicit and leaves no reliance on SDK defaults. Either is
+acceptable as a build action.
 
 ---
 
