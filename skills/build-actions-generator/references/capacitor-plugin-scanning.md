@@ -30,8 +30,8 @@ in `## What requires additional setup`.
 
 Exception: if the file is bundled inside the plugin itself (not user-supplied),
 a `copy` build action can place it. See
-[reference/android-build-actions.md](reference/android-build-actions.md) and
-[reference/ios-build-actions.md](reference/ios-build-actions.md) for `copy`
+[references/android-build-actions.md](references/android-build-actions.md) and
+[references/ios-build-actions.md](references/ios-build-actions.md) for `copy`
 constraints (hardcoded paths only; user-supplied paths are not reliable in ODC).
 
 **Script-type native logic** — Hooks or setup steps that perform code
@@ -84,8 +84,8 @@ build action just as if it appeared under a dedicated setup section.
 | "Add this file to your project" (user-supplied) | Skip — document as ODC resource setup step |
 
 For the full schema and examples of each action type, see:
-[reference/android-build-actions.md](reference/android-build-actions.md) |
-[reference/ios-build-actions.md](reference/ios-build-actions.md)
+[references/android-build-actions.md](references/android-build-actions.md) |
+[references/ios-build-actions.md](references/ios-build-actions.md)
 
 ---
 
@@ -139,7 +139,7 @@ Only create a `manifest` build action for entries that are:
 - Required based on README instructions or source analysis but **absent** from
   the bundled manifest
 - Conditionally needed depending on app configuration — use a variable with a
-  `condition`; see [reference/variables-and-conditions.md](reference/variables-and-conditions.md)
+  `condition`; see [references/variables-and-conditions.md](references/variables-and-conditions.md)
 
 Common example: many camera or barcode plugins already declare
 `<uses-permission android:name="android.permission.CAMERA" />` in their
@@ -252,7 +252,7 @@ CocoaPods layout). Framework imports and API usage are the primary signals for
 
 The framework import confirms the capability is used. Leave the usage
 description text as a variable so the developer can customize it — see
-[reference/variables-and-conditions.md](reference/variables-and-conditions.md).
+[references/variables-and-conditions.md](references/variables-and-conditions.md).
 Infer a sensible default from context where possible (e.g. camera plugin →
 `"Used for scanning"`).
 

@@ -94,20 +94,20 @@ At least one of `android` or `ios` must be present under `platforms`.
 
 ## Variables & Conditions
 
-See **[reference/variables-and-conditions.md](reference/variables-and-conditions.md)** for full syntax and examples.
+See **[references/variables-and-conditions.md](references/variables-and-conditions.md)** for full syntax and examples.
 
 - **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) declared by the plugin developer; consuming apps supply values via the extensibility configuration `parameters` block. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
 - **Platform-specific variants** — if the same logical value (e.g. an App ID, API key) is used on both Android and iOS but is typically distinct per platform, expose **separate variables** with `_ANDROID` and `_IOS` suffixes (e.g. `ADMOB_APP_ID_ANDROID`, `ADMOB_APP_ID_IOS`). Do not merge them into a single shared variable — the developer must be able to configure each platform independently.
 - **Usage** — reference with `$VAR_NAME` anywhere in string values: `"android:name": "com.example.$APP_NAME"`
 - **Conditions** — add a `condition` field to any action entry (except `displayName`, `productName`, and `appName`) to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
 
-> See **[reference/extensibility-configuration.md](reference/extensibility-configuration.md)** for how `parameters` in the extensibility configuration supplies values for variables declared in `buildAction.json`. When a library and its consuming app both define build actions, the library's runs first.
+> See **[references/extensibility-configuration.md](references/extensibility-configuration.md)** for how `parameters` in the extensibility configuration supplies values for variables declared in `buildAction.json`. When a library and its consuming app both define build actions, the library's runs first.
 
 ---
 
 ## Android Actions
 
-See **[reference/android-build-actions.md](reference/android-build-actions.md)** for full schemas and examples:
+See **[references/android-build-actions.md](references/android-build-actions.md)** for full schemas and examples:
 
 - `appName` — Set the Android app name (string, no condition support)
 - `manifest` — Modify `AndroidManifest.xml` (set attributes, merge or inject XML)
@@ -137,7 +137,7 @@ Quick reference (shown under `platforms.android` — always wrap in `{ "platform
 
 ## iOS Actions
 
-See **[reference/ios-build-actions.md](reference/ios-build-actions.md)** for full schemas and examples:
+See **[references/ios-build-actions.md](references/ios-build-actions.md)** for full schemas and examples:
 
 - `displayName` — Set app display name shown on the home screen (no condition support)
 - `productName` — Set product name shown in App Store (no condition support)
@@ -192,8 +192,8 @@ Plugin root is the path argument if one was given, otherwise the current directo
 - **Always also scan plugin source directly**, even when the contract is
   present. The contract is a starting point; source scanning catches signals
   the contract may not capture or may be stale on:
-  - **Cordova plugins:** parse `plugin.xml` — see **[reference/cordova-plugin-scanning.md](reference/cordova-plugin-scanning.md)** for the full element-to-action mapping and hook classification guide.
-  - **Capacitor plugins:** scan plugin documentation, `package.json`, and native source files (Java/Kotlin and Swift/Objective-C) — see **[reference/capacitor-plugin-scanning.md](reference/capacitor-plugin-scanning.md)** for the full scanning guide.
+  - **Cordova plugins:** parse `plugin.xml` — see **[references/cordova-plugin-scanning.md](references/cordova-plugin-scanning.md)** for the full element-to-action mapping and hook classification guide.
+  - **Capacitor plugins:** scan plugin documentation, `package.json`, and native source files (Java/Kotlin and Swift/Objective-C) — see **[references/capacitor-plugin-scanning.md](references/capacitor-plugin-scanning.md)** for the full scanning guide.
 - When invoked as part of the `cordova-plugin-migrator` ODC flow (Phase 11a),
   the output (`build-actions/`) is written to the **Capacitor plugin
   directory**, not the Cordova source tree. The `cordova-plugin-migrator`
@@ -221,7 +221,7 @@ Ask the developer (or infer from context):
 | Custom display name | — | `displayName` |
 | Custom native code | `code` inject/replace | `code` inject/replace |
 
-> Before concluding that a hook or element cannot be mapped to a build action, check **[reference/common-scenarios.md](reference/common-scenarios.md)** for patterns that appear unmappable but have correct build action equivalents.
+> Before concluding that a hook or element cannot be mapped to a build action, check **[references/common-scenarios.md](references/common-scenarios.md)** for patterns that appear unmappable but have correct build action equivalents.
 
 ### 4. Generate the JSON
 
@@ -351,7 +351,7 @@ configuration is required — inferred from the generated actions.>
   - `Capacitor hook` for script-type hooks — describe concretely what the hook must do
   - `ODC resource` for user-supplied files — tell the developer to add the file as an ODC resource in ODC Studio (Deploy Action: Deploy to Target Directory)
   - `Not supported in ODC` for blockers — ODC developers have no access to the native project, so there is no manual fallback; briefly state why rework would be needed
-- **Extensibility config permissions alternative**: Only mention `pluginConfigurations.permissions` in the README if (a) the developer explicitly asked about extensibility configurations, or (b) every generated build action is exclusively a `manifest` `<uses-permission>` entry and/or a `plist` iOS usage description entry — meaning the entire `buildAction.json` could be replaced by the `permissions` block in the library extensibility configuration. In all other cases omit it; the reference is in [reference/extensibility-configuration.md](reference/extensibility-configuration.md).
+- **Extensibility config permissions alternative**: Only mention `pluginConfigurations.permissions` in the README if (a) the developer explicitly asked about extensibility configurations, or (b) every generated build action is exclusively a `manifest` `<uses-permission>` entry and/or a `plist` iOS usage description entry — meaning the entire `buildAction.json` could be replaced by the `permissions` block in the library extensibility configuration. In all other cases omit it; the reference is in [references/extensibility-configuration.md](references/extensibility-configuration.md).
 
 **Terminal output after generating both files:**
 - Do not output the `buildAction.json` contents — the file write already

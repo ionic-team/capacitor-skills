@@ -105,7 +105,7 @@ Modifies Gradle build files. Accepts an array of patch entries.
 > the plugin explicitly documents as app-level setup steps that go into the root
 > `build.gradle` or `app/build.gradle` and are absent from the plugin's own
 > file. See the `<framework>` and `<preference>` sections in
-> [reference/cordova-plugin-scanning.md](reference/cordova-plugin-scanning.md)
+> [references/cordova-plugin-scanning.md](references/cordova-plugin-scanning.md)
 > for the full decision rules.
 
 **`insert`** — inserts new Gradle content at the target location:
