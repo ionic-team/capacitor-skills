@@ -173,12 +173,12 @@ version mismatches.
 
 **ODC minimum SDK constraints — do not generate build actions that violate these floors:**
 
-- **Android `minSdkVersion`:** MABS 12+ (ODC) enforces a minimum of 29. If a
-  plugin's README documents a required `minSdkVersion` ≤ 29, skip the `gradle`
+- **Android `minSdkVersion`:** MABS 12+ (ODC) enforces a minimum of 28. If a
+  plugin's README documents a required `minSdkVersion` ≤ 28, skip the `gradle`
   build action — the ODC floor already satisfies the requirement. Setting a
-  value below 29 will break ODC builds or cause runtime failures. Only generate
+  value below 28 will break ODC builds or cause runtime failures. Only generate
   a `gradle` action for `minSdkVersion` if the required value is **greater than
-  29**, and include a note in the README that the app's minimum Android version
+  28**, and include a note in the README that the app's minimum Android version
   is being raised above the ODC default.
 
   **When the README contains a developer-facing `minSdkVersion` instruction that
@@ -186,13 +186,13 @@ version mismatches.
   the developer is not left wondering whether they need to act. Place it in
   `## What requires additional setup` with reason "Automatically satisfied by
   MABS 12+" and recommended approach "No action required — MABS 12+ enforces a
-  minimum SDK of 29, which already meets this requirement." Example row:
+  minimum SDK of 28, which already meets this requirement." Example row:
 
   | Hook / element | Reason not mapped | Recommended approach |
   |----------------|-------------------|----------------------|
-  | `minSdkVersion = 26` (plugin README) | ODC/MABS 12+ floor (SDK 29) already satisfies this | No action required |
+  | `minSdkVersion = 26` (plugin README) | ODC/MABS 12+ floor (SDK 28) already satisfies this | No action required |
 - **Android `compileSdkVersion` and `targetSdkVersion`:** MABS 12+ (ODC)
-  enforces `compileSdkVersion` 35 and `targetSdkVersion` 36. Skip any `gradle`
+  enforces `compileSdkVersion` 36 and `targetSdkVersion` 36. Skip any `gradle`
   build action that sets these values at or below those floors — they are
   already satisfied. Only generate a `gradle` action if the required value
   exceeds the MABS floor.

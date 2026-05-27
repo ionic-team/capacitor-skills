@@ -53,9 +53,9 @@ This skill handles **Step 1 only**. Steps 2–4 require manual action.
 | Step | Owner | What |
 |------|-------|------|
 | **1. Generate JSON** | This skill | Create `buildAction.json` with all required platform actions |
-| **2. Upload JSON** | Developer | Add the file to the plugin/library in ODC Studio → Extensibility tab |
-| **3. Link in Portal** | Developer | Reference the build action in the ODC Portal → Mobile Distribution tab |
-| **4. Publish & test** | Developer | Publish the plugin and test a mobile build using MABS 12 (Capacitor) or later |
+| **2. Upload JSON** | Developer | Add the file to the plugin/library in ODC Studio → Resources, and then reference it Extensibility tab, creating Extensibility Settings for any variables. |
+| **3. Link in Portal** | Developer | If the build action has parameters, provide values in ODC Portal → Mobile Distribution tab → Extensibility settings |
+| **4. Publish & test** | Developer | Test a mobile build using MABS 12 (Capacitor) or later |
 
 ---
 
@@ -261,7 +261,7 @@ After writing the JSON file, validate its syntax before proceeding:
    entries where quotes must be escaped as `\"`).
 5. If an error is found (by tool or self-inspection), fix the file and repeat
    from step 2 until the JSON is valid.
-6. Only proceed to step 5 (README) once validation passes.
+6. Only proceed to the generation guideline 5 (README) once validation passes.
 
 ### 5. Generate the README and wrap up
 
@@ -325,8 +325,7 @@ configuration is required — inferred from the generated actions.>
    (`$extensibilitySettings.SettingName`). Use extensibility settings for any value that
    consuming apps should be able to configure. The plugin developer creates the settings
    in ODC Studio: right-click **Extensibility Settings** in the context pane →
-   **Add Extensibility Setting**. For sensitive values (API keys, tokens, files with
-   credentials), set **Is Secret** to True — secret settings have no default and must be
+   **Add Extensibility Setting**. For sensitive values (like API keys or tokens), set **Is Secret** to True — secret settings have no default and must be
    supplied in ODC Portal before generating a mobile package. The consuming app then sets
    values in ODC Portal → app → **Mobile distribution** → **Extensibility settings**.
 
