@@ -5,7 +5,7 @@ Generation Guidelines step 1 when `input-contract.yaml` is absent or partial.
 
 Scan the plugin in four passes:
 1. **Plugin documentation** — extract explicit native setup instructions
-2. **package.json** — detect existing hooks and dependencies
+2. **package.json** — detect existing hooks
 3. **Android native source** — confirm and supplement what documentation describes
 4. **iOS native source** — confirm and supplement what documentation describes
 
@@ -116,12 +116,6 @@ Even for migratable hooks, classify the operation first:
   appropriate build action using the same approach as Pass 3 and Pass 4
 - Script-type (code generation, dependency installs, branching logic) → out of
   scope; the hook must remain as-is
-
-### Dependencies
-
-Check `dependencies` and `devDependencies` for native SDK packages. These
-confirm signals found in Pass 3 and Pass 4 and help identify which Gradle
-dependencies are already declared in the plugin's own build files.
 
 ---
 
