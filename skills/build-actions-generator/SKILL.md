@@ -94,20 +94,21 @@ At least one of `android` or `ios` must be present under `platforms`.
 
 ## Variables & Conditions
 
-See **[references/variables-and-conditions.md](references/variables-and-conditions.md)** for full syntax and examples.
+If the build action uses variables or conditions, read **`references/variables-and-conditions.md`** for full syntax and examples.
 
 - **Variables** (`"variables"` key) — typed inputs (`string`, `number`, `boolean`) declared by the plugin developer; consuming apps supply values via the extensibility configuration `parameters` block. Always include a `default` unless the value is genuinely required; without one the build fails if unset.
 - **Platform-specific variants** — if the same logical value (e.g. an App ID, API key) is used on both Android and iOS but is typically distinct per platform, expose **separate variables** with `_ANDROID` and `_IOS` suffixes (e.g. `ADMOB_APP_ID_ANDROID`, `ADMOB_APP_ID_IOS`). Do not merge them into a single shared variable — the developer must be able to configure each platform independently.
-- **Usage** — reference with `$VAR_NAME` anywhere in string values: `"android:name": "com.example.$APP_NAME"`
-- **Conditions** — add a `condition` field to any action entry (except `displayName`, `productName`, and `appName`) to control whether it runs. Operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Arguments may be variable references or literals.
+- **Conditions** — add a `condition` field to any action entry (except `displayName`, `productName`, and `appName`) to conditionally skip it; for syntax and operators, see the reference file.
 
-> See **[references/extensibility-configuration.md](references/extensibility-configuration.md)** for how `parameters` in the extensibility configuration supplies values for variables declared in `buildAction.json`. When a library and its consuming app both define build actions, the library's runs first.
+> If variables are defined, read **`references/extensibility-configuration.md`** for how `parameters` in the extensibility configuration supplies values for variables declared in `buildAction.json`. When a library and its consuming app both define build actions, the library's runs first.
 
 ---
 
 ## Android Actions
 
-See **[references/android-build-actions.md](references/android-build-actions.md)** for full schemas and examples:
+If targeting Android, read **`references/android-build-actions.md`** for full action schemas and examples.
+
+Available actions:
 
 - `appName` — Set the Android app name (string, no condition support)
 - `manifest` — Modify `AndroidManifest.xml` (set attributes, merge or inject XML)
@@ -119,25 +120,13 @@ See **[references/android-build-actions.md](references/android-build-actions.md)
 - `code` — Add or patch native Android (Java/Kotlin) source files (`source`+`targetDir`, `file`+`target`+`replace`, or `file`+`patchFile`)
 - `tar` — Apply tar operations on project files
 
-Quick reference (shown under `platforms.android` — always wrap in `{ "platforms": { "android": { ... } } }`):
-
-```json
-"android": {
-  "appName":  "$APP_NAME",
-  "manifest": [ { "file": "AndroidManifest.xml", "target": "...", "merge": "..." } ],
-  "gradle":   [ { "file": "app/build.gradle", "target": { ... }, "replace": { ... } } ],
-  "res":      [ { "path": "raw", "file": "config.json", "text": "..." } ],
-  "xml":      [ { "file": "res/xml/...", "target": "...", "merge": "..." } ],
-  "copy":     [ { "src": "...", "dest": "..." } ],
-  "code":     [ { "source": "files/MyClass.java", "targetDir": "src/com/example" } ]
-}
-```
-
 ---
 
 ## iOS Actions
 
-See **[references/ios-build-actions.md](references/ios-build-actions.md)** for full schemas and examples:
+If targeting iOS, read **`references/ios-build-actions.md`** for full action schemas and examples.
+
+Available actions:
 
 - `displayName` — Set app display name shown on the home screen (no condition support)
 - `productName` — Set product name shown in App Store (no condition support)
@@ -154,19 +143,6 @@ See **[references/ios-build-actions.md](references/ios-build-actions.md)** for f
 - `xcconfig` — Update `.xcconfig` build configuration files
 - `code` — Add or patch native iOS (Swift/Objective-C) source files (`source`+`compilerFlags`, `file`+`target`+`replace`, or `file`+`patchFile`)
 - `tar` — Apply tar operations on project files
-
-Quick reference (shown under `platforms.ios` — always wrap in `{ "platforms": { "ios": { ... } } }`):
-
-```json
-"ios": {
-  "displayName": "$APP_NAME",
-  "plist":        [ { "replace": false, "entries": [ { "NSKey": "value" } ] } ],
-  "entitlements": { "replace": false, "entries": [ { "aps-environment": "production" } ] },
-  "frameworks":   [ { "name": "AudioToolbox.framework" } ],
-  "copy":         [ { "src": "...", "dest": "..." } ],
-  "code":         [ { "file": "App/AppDelegate.swift", "target": "/import Capacitor/", "replace": "..." } ]
-}
-```
 
 ---
 
@@ -192,8 +168,8 @@ Plugin root is the path argument if one was given, otherwise the current directo
 - **Always also scan plugin source directly**, even when the contract is
   present. The contract is a starting point; source scanning catches signals
   the contract may not capture or may be stale on:
-  - **Cordova plugins:** parse `plugin.xml` — see **[references/cordova-plugin-scanning.md](references/cordova-plugin-scanning.md)** for the full element-to-action mapping and hook classification guide.
-  - **Capacitor plugins:** scan plugin documentation, `package.json`, and native source files (Java/Kotlin and Swift/Objective-C) — see **[references/capacitor-plugin-scanning.md](references/capacitor-plugin-scanning.md)** for the full scanning guide.
+  - **Cordova plugins:** parse `plugin.xml` — read **`references/cordova-plugin-scanning.md`** for the full element-to-action mapping and hook classification guide.
+  - **Capacitor plugins:** scan plugin documentation, `package.json`, and native source files (Java/Kotlin and Swift/Objective-C) — read **`references/capacitor-plugin-scanning.md`** for the full scanning guide.
 - When invoked as part of the `cordova-plugin-migrator` ODC flow (Phase 11a),
   the output (`build-actions/`) is written to the **Capacitor plugin
   directory**, not the Cordova source tree. The `cordova-plugin-migrator`
@@ -221,7 +197,7 @@ Ask the developer (or infer from context):
 | Custom display name | — | `displayName` |
 | Custom native code | `code` inject/replace | `code` inject/replace |
 
-> Before concluding that a hook or element cannot be mapped to a build action, check **[references/common-scenarios.md](references/common-scenarios.md)** for patterns that appear unmappable but have correct build action equivalents.
+> If a hook or element does not map clearly to any action listed above, read **`references/common-scenarios.md`** for patterns that appear unmappable but have correct build action equivalents.
 
 ### 4. Generate the JSON
 
@@ -267,73 +243,8 @@ After writing the JSON file, validate its syntax before proceeding:
 
 Generate `build-actions/README.md` alongside the JSON. It serves as
 source-control documentation for the plugin and as the primary reference for
-the developer setting up ODC. Use this structure:
-
-```markdown
-# <Plugin/App Name> Build Actions
-
-<One short paragraph: what this plugin/app does and why native build
-configuration is required — inferred from the generated actions.>
-
-## What this configures
-
-### Android
-| Action | Purpose |
-|--------|---------|
-| `<action type>` | <what it sets up> |
-
-### iOS
-| Action | Purpose |
-|--------|---------|
-| `<action type>` | <what it sets up> |
-
-## What requires additional setup
-
-| Hook / element | Reason not mapped | Recommended approach |
-|----------------|-------------------|----------------------|
-| `<hook type>` | <why it can't be a build action> | Capacitor hook |
-
-## Variables
-
-| Variable | Type | Required | Default | Description |
-|----------|------|----------|---------|-------------|
-| `VAR_NAME` | string | yes | — | What this value controls |
-
-## ODC Setup
-
-1. In ODC Studio, add `buildAction.json` as a resource and set **Deploy Action**
-   to **Deploy to Target Directory**.
-2. Configure extensibility to reference the file and resolve its variables.
-   The path depends on the target:
-   - **ODC app:** App > Edit app properties > Extensibility
-   - **ODC Mobile Library (plugin):** Library > Edit library properties > Extensibility
-
-   \`\`\`json
-   {
-       "buildConfigurations": {
-           "buildAction": {
-               "config": "$resources.buildAction.json",
-               "parameters": {
-                   "VAR_NAME": "value"
-               }
-           }
-       }
-   }
-   \`\`\`
-
-   Values in `parameters` can be hardcoded literals or extensibility setting references
-   (`$extensibilitySettings.SettingName`). Use extensibility settings for any value that
-   consuming apps should be able to configure. The plugin developer creates the settings
-   in ODC Studio: right-click **Extensibility Settings** in the context pane →
-   **Add Extensibility Setting**. For sensitive values (like API keys or tokens), set **Is Secret** to True — secret settings have no default and must be
-   supplied in ODC Portal before generating a mobile package. The consuming app then sets
-   values in ODC Portal → app → **Mobile distribution** → **Extensibility settings**.
-
-3. Build in the ODC Portal using MABS 12 or greater:
-   - **ODC app:** build the app directly.
-   - **ODC Mobile Library (plugin):** consume the library in an ODC app, then
-     build that app.
-```
+the developer setting up ODC. Read **`references/readme-template.md`** for
+the required structure, then follow the authoring rules below.
 
 **README authoring rules:**
 - Omit the `### Android` or `### iOS` section if that platform has no actions.
