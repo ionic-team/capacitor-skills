@@ -200,6 +200,14 @@ emission.
   approves. If the user rejects, halts, or has unanswered blockers,
   stop. Never invoke the generator with a YAML that has non-empty
   `migration.blockers` or non-empty `migration.hooks.tier_3`.
+- When `odc_target: true`, Phase 11 splits into two sequential sub-phases
+  (11a and 11b). Phase 11a invokes `build-actions-generator`; Phase 11b
+  invokes `capacitor-plugin-generator`. See `references/using-plugin-generator.md`
+  "ODC Path" for the full sequence. Build actions are written to the Capacitor
+  plugin folder. Hooks and migration notes that are fully covered by build
+  actions must be excluded from the YAML passed to the generator (Phase 11b),
+  to avoid the generator emitting redundant Capacitor hook scripts for
+  config-level work already handled by build actions.
 
 ## Procedures
 
@@ -224,6 +232,13 @@ Otherwise, pick the output mode:
 
 See `references/output-modes.md` for layouts, pre-flight checks, and
 the exact relocation sequence.
+
+**ODC confirmation:** Check whether the user mentioned ODC or OutSystems
+Developer Cloud anywhere in the request. If yes, set `odc_target: true` and
+proceed. If not, ask: *"Will this Capacitor plugin be consumed by an ODC
+(OutSystems Developer Cloud) app? If yes, build actions will be generated
+alongside the Capacitor plugin to handle native configuration in MABS."*
+Record the answer as `odc_target: true/false` for use in Phase 11.
 
 ### Phase 2: Read `plugin.xml`
 
@@ -318,25 +333,28 @@ warnings, manual setup, recommended output mode, and any Capacitor
 equivalent being mirrored. Stop and wait for confirmation if blockers or
 Tier 3 hooks are non-empty.
 
-### Phase 11: Invoke `capacitor-plugin-generator`
+### Phase 11: Invoke Downstream Skills
 
-Apply `references/using-plugin-generator.md`. After Phase 10 checkpoint
-approval, invoke the `capacitor-plugin-generator` skill via the Skill
-tool in structured mode, passing the Phase 9 YAML as the input
-contract. The generator runs its own playbook (scaffold, TypeScript
-contract, web, iOS, Android, sample app, docgen, verify); this skill
-does not re-inspect Cordova source during or after the generator run.
+The downstream invocation path depends on whether ODC was confirmed in Phase 1.
 
-For **Complex** plugins, invoke the generator in **incremental mode**:
-one platform at a time (TypeScript contract → iOS → Android → web)
-with user checkpoints between each platform, rather than handing the
-full YAML in a single call. This avoids context overflow and lets the
-user inspect each platform's output before the next runs.
+**Non-ODC path:** Apply `references/using-plugin-generator.md`. Invoke
+`capacitor-plugin-generator` via the Skill tool in structured mode with the
+Phase 9 YAML. The generator runs its own playbook; this skill does not
+re-inspect Cordova source. For **Complex** plugins use **incremental mode**
+(one platform at a time with user checkpoints). If the generator rejects the
+YAML, return to Phase 9 and fix it — never hand-edit generator output.
 
-If the generator rejects the YAML (missing fields, invalid wire-format
-literals, etc.), return to Phase 9 here. Fix the YAML in this skill and
-re-invoke. Never hand-edit the generator's output to paper over
-contract drift.
+**ODC path:** Follow the two-sub-phase sequence in
+`references/using-plugin-generator.md` "ODC Path":
+
+- **Phase 11a** — Invoke `build-actions-generator` with the Phase 9 YAML
+  and the Cordova plugin path; wait for `build-actions/` output. Note which
+  hooks/elements it covered.
+- **Phase 11b** — Remove build-action-covered items from
+  `migration.hooks.tier_1` (or mark `status: handled_by_build_actions`); add
+  a `migration.notes` entry documenting this. Then invoke
+  `capacitor-plugin-generator` with the annotated YAML (standard or incremental
+  per complexity).
 
 ### Phase 12: Post-Migration Cleanup
 
@@ -445,6 +463,12 @@ in the migration trail.
   `references/input-contract.md` is the authoritative shape for handoff.
   This skill conforms and cites it but does not duplicate any
   generator-side rules.
+- `build-actions-generator` *(optional downstream dependency, ODC path only)*:
+  Phase 11a invokes this skill when `odc_target: true`. It generates
+  `buildAction.json` for the Capacitor plugin's `build-actions/` directory,
+  covering config-level native setup (manifest, plist, Gradle deps,
+  entitlements) so the generator does not need to emit Capacitor hook
+  equivalents for those items.
 
 ## References
 

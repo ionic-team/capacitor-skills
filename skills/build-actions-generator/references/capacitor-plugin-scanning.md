@@ -30,8 +30,8 @@ in `## What requires additional setup`.
 
 Exception: if the file is bundled inside the plugin itself (not user-supplied),
 a `copy` build action can place it. See
-[reference/android-build-actions.md](reference/android-build-actions.md) and
-[reference/ios-build-actions.md](reference/ios-build-actions.md) for `copy`
+[references/android-build-actions.md](references/android-build-actions.md) and
+[references/ios-build-actions.md](references/ios-build-actions.md) for `copy`
 constraints (hardcoded paths only; user-supplied paths are not reliable in ODC).
 
 **Script-type native logic** — Hooks or setup steps that perform code
@@ -84,8 +84,8 @@ build action just as if it appeared under a dedicated setup section.
 | "Add this file to your project" (user-supplied) | Skip — document as ODC resource setup step |
 
 For the full schema and examples of each action type, see:
-[reference/android-build-actions.md](reference/android-build-actions.md) |
-[reference/ios-build-actions.md](reference/ios-build-actions.md)
+[references/android-build-actions.md](references/android-build-actions.md) |
+[references/ios-build-actions.md](references/ios-build-actions.md)
 
 ---
 
@@ -133,7 +133,7 @@ Only create a `manifest` build action for entries that are:
 - Required based on README instructions or source analysis but **absent** from
   the bundled manifest
 - Conditionally needed depending on app configuration — use a variable with a
-  `condition`; see [reference/variables-and-conditions.md](reference/variables-and-conditions.md)
+  `condition`; see [references/variables-and-conditions.md](references/variables-and-conditions.md)
 
 Common example: many camera or barcode plugins already declare
 `<uses-permission android:name="android.permission.CAMERA" />` in their
@@ -173,12 +173,12 @@ version mismatches.
 
 **ODC minimum SDK constraints — do not generate build actions that violate these floors:**
 
-- **Android `minSdkVersion`:** MABS 12+ (ODC) enforces a minimum of 29. If a
-  plugin's README documents a required `minSdkVersion` ≤ 29, skip the `gradle`
+- **Android `minSdkVersion`:** MABS 12+ (ODC) enforces a minimum of 28. If a
+  plugin's README documents a required `minSdkVersion` ≤ 28, skip the `gradle`
   build action — the ODC floor already satisfies the requirement. Setting a
-  value below 29 will break ODC builds or cause runtime failures. Only generate
+  value below 28 will break ODC builds or cause runtime failures. Only generate
   a `gradle` action for `minSdkVersion` if the required value is **greater than
-  29**, and include a note in the README that the app's minimum Android version
+  28**, and include a note in the README that the app's minimum Android version
   is being raised above the ODC default.
 
   **When the README contains a developer-facing `minSdkVersion` instruction that
@@ -186,13 +186,13 @@ version mismatches.
   the developer is not left wondering whether they need to act. Place it in
   `## What requires additional setup` with reason "Automatically satisfied by
   MABS 12+" and recommended approach "No action required — MABS 12+ enforces a
-  minimum SDK of 29, which already meets this requirement." Example row:
+  minimum SDK of 28, which already meets this requirement." Example row:
 
   | Hook / element | Reason not mapped | Recommended approach |
   |----------------|-------------------|----------------------|
-  | `minSdkVersion = 26` (plugin README) | ODC/MABS 12+ floor (SDK 29) already satisfies this | No action required |
+  | `minSdkVersion = 26` (plugin README) | ODC/MABS 12+ floor (SDK 28) already satisfies this | No action required |
 - **Android `compileSdkVersion` and `targetSdkVersion`:** MABS 12+ (ODC)
-  enforces `compileSdkVersion` 35 and `targetSdkVersion` 36. Skip any `gradle`
+  enforces `compileSdkVersion` 36 and `targetSdkVersion` 36. Skip any `gradle`
   build action that sets these values at or below those floors — they are
   already satisfied. Only generate a `gradle` action if the required value
   exceeds the MABS floor.
@@ -246,7 +246,7 @@ CocoaPods layout). Framework imports and API usage are the primary signals for
 
 The framework import confirms the capability is used. Leave the usage
 description text as a variable so the developer can customize it — see
-[reference/variables-and-conditions.md](reference/variables-and-conditions.md).
+[references/variables-and-conditions.md](references/variables-and-conditions.md).
 Infer a sensible default from context where possible (e.g. camera plugin →
 `"Used for scanning"`).
 

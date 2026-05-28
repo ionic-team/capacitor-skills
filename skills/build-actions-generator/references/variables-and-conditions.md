@@ -120,4 +120,4 @@ The developer sets `ENABLE_NOTIFICATION_COLOR` to `true` in ODC Studio when they
 
 Variables declared here are supplied at build time via the `parameters` block in the extensibility configuration. Values in `parameters` can be hardcoded literals or extensibility setting references (`$extensibilitySettings.SettingName`). The plugin developer creates extensibility settings in ODC Studio and references them in `parameters`; the consuming app then sets their values in ODC Portal — without hardcoding anything in the JSON.
 
-See **[reference/extensibility-configuration.md](extensibility-configuration.md)** for the `parameters` contract and how to create extensibility settings in ODC Studio.
+See **[references/extensibility-configuration.md](extensibility-configuration.md)** for the `parameters` contract and how to create extensibility settings in ODC Studio.

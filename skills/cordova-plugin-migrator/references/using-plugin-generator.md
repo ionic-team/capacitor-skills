@@ -172,6 +172,54 @@ lets the user reject any single platform without rolling back the others.
 
 If any check fails, do not invoke. Surface the failure and stop.
 
+---
+
+## ODC Path: Invoking `build-actions-generator` Before the Generator
+
+**When it applies:** `odc_target: true` (confirmed in Phase 1).
+
+### Phase 11a — Invoke `build-actions-generator`
+
+- Pass: the Phase 9 YAML (full input-contract shape) and the Cordova plugin
+  directory path as the working directory or argument.
+- The skill reads the relevant sections (`migration.hooks`, `dependencies`,
+  `permissions`, `plugin`) and **always also scans source directly**.
+- Output goes to `build-actions/` inside the Capacitor plugin directory:
+  - **Mode B:** `<sibling-capacitor-dir>/build-actions/`
+  - **Mode A:** `<repo-root>/build-actions/` (after Phase 12 relocation)
+- After the skill completes, read `build-actions/README.md` to determine what
+  was covered — the actions table ("What this configures") and the unmapped
+  items table ("What requires additional setup").
+
+### Determining what the generator should skip
+
+- Any hook in `migration.hooks.tier_1` whose purpose is a config-level
+  host-app modification (plist key, AndroidManifest entry, entitlement, Gradle
+  dependency) **that was emitted as a build action** should be marked
+  `status: handled_by_build_actions` before passing to the generator.
+- Hooks that remain (file copies, asset pipelines, non-config scripts) stay
+  in `tier_1` as normal.
+- Add a `migration.notes` entry:
+  `"ODC: config-level host-app modifications are handled by build actions in build-actions/. See build-actions/README.md."` so the generator and reviewer have a clear audit trail.
+
+### Phase 11b — Invoke `capacitor-plugin-generator`
+
+- Pass the annotated YAML (tier_1 hooks with handled ones marked,
+  `migration.notes` updated).
+- The generator emits Capacitor hooks only for items **not** marked
+  `handled_by_build_actions`.
+- Standard vs incremental complexity rules apply as before.
+
+### Pre-flight checks for Phase 11a
+
+- Same as existing pre-flights (`migration.blockers` empty,
+  `migration.hooks.tier_3` empty, Phase 10 acknowledged).
+- Additionally: if `build-actions-generator` is not available, fall back to
+  the non-ODC path and document the manual ODC setup steps (build action
+  configuration) in `MIGRATION.md`.
+
+---
+
 ## What the Generator Will Reject
 
 The generator skill rejects YAML with any of:

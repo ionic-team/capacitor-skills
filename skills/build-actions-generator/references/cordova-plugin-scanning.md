@@ -201,7 +201,7 @@ when the developer does not configure it.
 **Step 3 — if one or more variables are needed, write them.** A single
 `buildAction.json` can declare multiple variables, one per qualifying
 preference. See
-[reference/variables-and-conditions.md](reference/variables-and-conditions.md).
+[references/variables-and-conditions.md](references/variables-and-conditions.md).
 Map each `<preference name="X" default="Y">` to a variable `X`: use type
 `string` by default, or infer `number`/`boolean` when the default value is
 clearly numeric or boolean. Set `default` to the preference's `default`
@@ -218,7 +218,7 @@ contains a comment about `NSString.boolValue` or stores the value as `"true"` /
 `"false"` strings internally. That convention belongs to the Cordova
 implementation. In build actions, always use `boolean` type — the tool resolves
 the correct plist type automatically. See
-[reference/common-scenarios.md — "Boolean preference written as a plist string"](common-scenarios.md#pattern-boolean-preference-written-as-a-plist-string)
+[references/common-scenarios.md — "Boolean preference written as a plist string"](common-scenarios.md#pattern-boolean-preference-written-as-a-plist-string)
 for the complete pattern.
 
 ```xml
@@ -293,8 +293,8 @@ outcome:
 
 Use the Pass 1 element-to-action table as a guide for the specific build action
 shape, and the platform reference files for the full schema and examples:
-[reference/android-build-actions.md](reference/android-build-actions.md) |
-[reference/ios-build-actions.md](reference/ios-build-actions.md).
+[references/android-build-actions.md](references/android-build-actions.md) |
+[references/ios-build-actions.md](references/ios-build-actions.md).
 
 **Pattern: conditional set / conditional delete**
 
@@ -316,7 +316,7 @@ Note: `plist` has no delete operation. `manifest` and `xml` do support `delete`,
 but prefer the conditional approach above when the value originates from a
 declarative element — it is simpler and avoids ordering dependencies.
 
-See [reference/common-scenarios.md](reference/common-scenarios.md) for concrete
+See [references/common-scenarios.md](references/common-scenarios.md) for concrete
 JSON examples of both patterns.
 
 **Script-type operations → out of scope (Capacitor hook territory):**

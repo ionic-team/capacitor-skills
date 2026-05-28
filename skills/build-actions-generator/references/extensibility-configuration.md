@@ -326,6 +326,6 @@ Extensibility configuration values support these reference prefixes:
 
 ## Cross-references
 
-- **Build action variables** — [reference/variables-and-conditions.md](variables-and-conditions.md): how variables are declared in `buildAction.json` (the plugin side of the `parameters` contract)
-- **Android build actions** — [reference/android-build-actions.md](android-build-actions.md): `manifest` action for permissions; `gradle` for dependencies
-- **iOS build actions** — [reference/ios-build-actions.md](ios-build-actions.md): `plist` for usage descriptions; `entitlements` for capabilities
+- **Build action variables** — [references/variables-and-conditions.md](variables-and-conditions.md): how variables are declared in `buildAction.json` (the plugin side of the `parameters` contract)
+- **Android build actions** — [references/android-build-actions.md](android-build-actions.md): `manifest` action for permissions; `gradle` for dependencies
+- **iOS build actions** — [references/ios-build-actions.md](ios-build-actions.md): `plist` for usage descriptions; `entitlements` for capabilities
