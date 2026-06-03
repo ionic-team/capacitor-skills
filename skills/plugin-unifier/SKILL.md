@@ -178,6 +178,13 @@ build.gradle). Then apply the following on top of the generator output:
   `OS-PLUG-<PLUGIN>-NNNN` format, and ensure every `call.reject()` passes one of
   these codes.
 - OSS-clean rule: no OutSystems types, no Cordova bridge code — except error codes.
+- **SPM-primary iOS dependencies** from the "iOS Dependencies — SPM-primary"
+  section of `references/unified-structure.md` — when a dependency ships an SPM
+  distribution, declare it under `dependencies.ios.spm` and wire it into
+  `Package.swift`, with the podspec as the CocoaPods fallback (ship both). Go
+  CocoaPods-only only when no SPM distribution exists. Note: a Cordova
+  `<pod … nospm="true">` marker means SPM already satisfies that dep — port it
+  SPM-primary, do **not** read it as "keep CocoaPods".
 - **Platform gotchas** from the "Platform Gotchas" section of
   `references/unified-structure.md` — apply the iOS/Android correctness rules
   (FileProvider subclassing, Kotlin error-enum exception wrapper, Swift
@@ -366,6 +373,7 @@ inline OML generation in the current high-code phase.
 | Android manifest merge fails on `FileProvider` (`authorities`/`name` collision) | The plugin declared a bare `androidx.core.content.FileProvider`, colliding with the host app's. Subclass it (`<Plugin>FileProvider : FileProvider()`) and reference the subclass in the manifest. See "Platform Gotchas" in `references/unified-structure.md`. |
 | Kotlin: "type mismatch: inferred type is `<Error>` but `Throwable` was expected" | The error enum is being `throw`n. Kotlin enums can't be `Throwable` (Swift `enum: Error` can). Wrap it: `class <Plugin>Exception(val error: <Plugin>Error) : Exception(error.message)`. |
 | Swift/SPM: "method cannot be declared public because its parameter uses an internal type" | A `public` bridge/impl method exposes an `internal` option/result struct. Mark the shared option/result types `public`. |
+| Defaulted an iOS dependency to CocoaPods, or read a Cordova `<pod … nospm="true">` as "keep CocoaPods" | Wrong default. SPM is primary on Capacitor 8; declare deps with an SPM distribution under `dependencies.ios.spm` and ship the podspec as fallback. `nospm="true"` means SPM already satisfies that dep — port it SPM-primary. See "iOS Dependencies — SPM-primary" in `references/unified-structure.md`. |
 | Android gallery picker is a poor UX / does nothing on API 33+ | Use the PhotoPicker API (`ActivityResultContracts.PickVisualMedia` / `ACTION_PICK_IMAGES`), not `ACTION_GET_CONTENT`, and don't gate it on storage permissions. See "Platform Gotchas". |
 | Android full-screen Activity (e.g. image editor) has controls cropped under the system bars | Edge-to-edge is enforced on SDK 35+. Apply `WindowInsetsCompat` padding to the Activity root. See "Platform Gotchas". |
 | iOS verification app crashes on first camera/photo access | The consuming app is missing the `NS*UsageDescription` Info.plist strings. Phase 6 must inject the plugin's required usage strings into the verification app before building/running. |

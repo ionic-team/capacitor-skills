@@ -317,6 +317,58 @@ class {Plugin} {
 
 ---
 
+## `Package.swift` (iOS — only when the plugin has SPM dependencies)
+
+Generate a Cordova `Package.swift` **only** when the iOS side has SPM
+dependencies (the SPM-primary case from `unified-structure.md`, e.g. a Firebase
+SDK). Pair it with `<platform name="ios" package="swift">` in `plugin.xml`.
+Plugins with no iOS SPM deps must **not** ship one — Capacitor consumes them via
+the `capacitor-cordova-ios-plugins/sources/` path, and the standard
+`<source-file>` + `<podspec>` entries are enough.
+
+When you do ship it, two Capacitor-imposed rules make it resolve when a Capacitor
+app (or ODC) consumes the plugin — both verified by the Phase 6 build:
+
+- **Name everything after the Cordova plugin id.** `Package(name:)`, the library
+  product, and the target must all be `com.outsystems.plugins.{plugin}` — not a
+  friendly name. Capacitor references `.product(name: "{id}", package: "{id}")`,
+  so any other name fails with `product '…' not found`.
+- **Keep `https://github.com/apache/cordova-ios.git` as the first `apache` in the
+  file.** `cap sync` rewrites it via
+  `.replace('apache','ionic-team').replaceAll('cordova-ios','capacitor-swift-pm')`;
+  an "apache"/"cordova-ios" substring in a comment above the dependency mangles
+  the URL. See the iOS subsection in `build-verification.md` for the full
+  rationale.
+
+```swift
+// swift-tools-version:5.9
+import PackageDescription
+
+let package = Package(
+    name: "com.outsystems.plugins.{plugin}",
+    platforms: [.iOS(.v15)],
+    products: [
+        .library(name: "com.outsystems.plugins.{plugin}",
+                 targets: ["com.outsystems.plugins.{plugin}"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apache/cordova-ios.git", branch: "master"),
+        // ... plugin SPM deps (e.g. firebase-ios-sdk) ...
+    ],
+    targets: [
+        .target(
+            name: "com.outsystems.plugins.{plugin}",
+            dependencies: [
+                .product(name: "Cordova", package: "cordova-ios"),
+                // ... products from the SPM deps above ...
+            ],
+            path: "src/ios")
+    ]
+)
+```
+
+---
+
 ## `package.json`
 
 ```json

@@ -180,6 +180,39 @@ plugin's required keys (e.g. from its `ios/NOTES.md` / podspec / Cordova
 <key>NSMicrophoneUsageDescription</key><string>Test app records audio.</string>
 ```
 
+### Cordova plugin shipping a `Package.swift` (SPM-primary iOS deps)
+
+Only relevant when the Cordova plugin declares `<platform name="ios"
+package="swift">` and ships its own `Package.swift` — which the unifier does
+exactly when iOS has SPM dependencies (Firebase, etc.; see "iOS Dependencies —
+SPM-primary" in `unified-structure.md`). Plugins with no iOS SPM deps don't ship
+a Cordova `Package.swift` (Capacitor consumes them via the
+`capacitor-cordova-ios-plugins/sources/` path) and skip both rules below.
+
+When such a plugin is consumed by a Capacitor app (which is what this phase
+does), Capacitor's SPM integration imposes two requirements on the plugin's
+`Package.swift`:
+
+1. **`Package(name:)`, the library product, and the target must all equal the
+   Cordova plugin id** (`com.outsystems.plugins.{plugin}`). Capacitor's CLI
+   generates `.package(name: "{id}", …)` / `.product(name: "{id}", package:
+   "{id}")`, so a friendly name like `cordova-outsystems-{plugin}` fails with
+   `product '…' not found in package '…'`.
+
+2. **Keep `https://github.com/apache/cordova-ios.git` as the first `apache`
+   occurrence in the file.** On `cap sync`/`cap add`, Capacitor rewrites the
+   plugin's `Package.swift` in place with
+   `.replace('apache','ionic-team').replaceAll('cordova-ios','capacitor-swift-pm')`.
+   The `.replace` only hits the *first* `apache`, so any "apache" or
+   "cordova-ios" text in a comment above the dependency mangles the URL to the
+   unresolvable `https://github.com/apache/capacitor-swift-pm.git`. Don't put
+   those substrings in comments before the dependency line.
+
+The shipped (committed) form keeps `apache/cordova-ios` for standalone MABS SPM
+builds; Capacitor re-adapts it to `ionic-team/capacitor-swift-pm` locally on
+each sync. *(Observed on Capacitor 8.x — these are CLI implementation details
+(`@capacitor/cli` `util/spm.js`, `ios/update.js`); re-verify on future majors.)*
+
 ---
 
 ## Graceful degradation
@@ -206,6 +239,9 @@ Do **not** silently claim a platform is build-ready when it was not built.
 - Swift/SPM module-emission errors (e.g. `public` method exposing `internal` type).
 - Missing source-file / Activity / permission declarations.
 - Gradle dependency and AndroidX/compileSdk mismatches.
+- Cordova-plugin `Package.swift` product-name / URL-rewrite mismatches (see the
+  iOS subsection above) — only surfaces when the Cordova plugin ships its own
+  `Package.swift`.
 
 **NOT caught by the build** (device pass required, list as outstanding):
 - Picker/editor UX (e.g. PhotoPicker vs legacy intent, crop-overlay rendering).

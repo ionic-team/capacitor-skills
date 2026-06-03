@@ -236,6 +236,37 @@ Current targets (Capacitor 8):
 
 ---
 
+## iOS Dependencies — SPM-primary
+
+Swift Package Manager is the default iOS dependency manager for new Capacitor
+plugins (Capacitor 8 scaffolds `Package.swift` as the primary artifact) and is
+Apple's native, bundled manager. CocoaPods is in maintenance mode and being
+wound down, so a generated plugin must **never be CocoaPods-only** for a
+dependency that ships an SPM distribution.
+
+Rule for the dependency block presented in Phase 2 and applied over the
+generator's output in Phase 3:
+
+- **When a dependency offers an SPM distribution, declare it under
+  `dependencies.ios.spm` and wire it into `Package.swift`.** CocoaPods/podspec
+  is the fallback path, not the primary one.
+- **Ship both `Package.swift` and `Capacitor{Plugin}.podspec`,** symmetrically —
+  SPM-primary, CocoaPods for consumers still on that path. The
+  `npm init @capacitor/plugin` scaffold emits both; keep them in sync.
+- **Go CocoaPods-only for a given dependency only when it has no SPM
+  distribution.** Record that as the reason so a reviewer can see it was a
+  constraint, not a default.
+
+> **`nospm="true"` does not mean "use CocoaPods."** When porting from a Cordova
+> plugin whose `plugin.xml` tags a `<pod … nospm="true">` (e.g.
+> `FirebaseAnalytics`), that marker means the SPM build path already satisfies
+> the dependency via the sibling `Package.swift` — the pod is the CocoaPods-only
+> *fallback*. Such a dependency is **SPM-primary** in the port: lift it into
+> `dependencies.ios.spm`, not `cocoapods`. Reading `nospm` as "keep CocoaPods"
+> inverts its meaning.
+
+---
+
 ## Platform Gotchas
 
 Correctness rules that apply to **both** the Capacitor output (apply after the
