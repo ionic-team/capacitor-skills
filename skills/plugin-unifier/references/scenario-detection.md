@@ -109,6 +109,14 @@ developer may override (unscoped `capacitor-{plugin}` or a scope they control;
 `@capacitor` is Ionic-owned and unpublishable by third parties). See
 `references/unified-structure.md` "npm package name".
 
+If the source plugin does not already expose `checkPermissions()` /
+`requestPermissions()`, **ask the developer whether to expose explicit
+permission methods or request permissions implicitly inside each method** — do
+not assume the explicit methods. The `cordova-plugin-migrator` baseline adds
+them by convention, but many legacy plugins request permissions implicitly, and
+that may be the intended behavior. Default to the explicit methods, present it
+as a default, and apply the chosen model to both plugins.
+
 Ask: *"Does this look right? I'll generate both plugins from this spec."*
 
 Only proceed once the user confirms.

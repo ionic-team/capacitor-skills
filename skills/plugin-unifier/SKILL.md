@@ -176,6 +176,19 @@ third parties, so it suits an internal mirror but a public release needs a name
 the developer owns). See the "npm package name" note in
 `references/unified-structure.md` (it also drives the iOS SPM product name).
 
+**Permission methods — ask, never assume.** If the source plugin does not
+already expose `checkPermissions()` / `requestPermissions()`, do not silently
+add them (the `cordova-plugin-migrator` baseline adds them by convention, but
+the legacy plugin may simply request permissions implicitly inside each method).
+Ask the developer which model they want:
+
+1. **Explicit** `checkPermissions()` / `requestPermissions()` methods.
+2. **Implicit** — no permission methods; each method requests the permission it
+   needs internally (matches the legacy plugin's behavior).
+
+Default to (1), but present it as a default rather than a decision already made,
+and apply the chosen model identically to both the Capacitor and Cordova sides.
+
 ### Phase 3: Generate the Capacitor Plugin
 
 You **MUST invoke** the `capacitor-plugin-generator` skill via the Skill tool in
