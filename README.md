@@ -4,7 +4,7 @@ A catalog of agent skills for working with Capacitor.
 
 ## Overview
 
-This repository contains agent skills focused on the Capacitor development lifecycle. Currently, it includes skills specific to plugins: generating first-pass net-new plugins, migrating existing Cordova plugins to Capacitor, and configuring OutSystems Developer Cloud (ODC) build actions for plugins.
+This repository contains agent skills focused on the Capacitor development lifecycle. Currently, it includes skills specific to plugins: generating first-pass net-new plugins, migrating existing Cordova plugins to Capacitor, unifying a plugin's Capacitor and Cordova sides into an OutSystems dual-stack plugin, and configuring OutSystems Developer Cloud (ODC) build actions for plugins.
 
 The skills are written to be agent-agnostic. They package domain knowledge, best practices, and repeatable workflows as plain instructions and reference material, so any agent that supports the [skills](https://skills.sh) format can use them.
 
@@ -28,6 +28,12 @@ Generates OutSystems Developer Cloud (ODC) build action JSON files that configur
 
 **Use when:** Creating a build action for an ODC plugin, generating a `buildAction.json` file, setting up Gradle or plist build actions, or configuring `AndroidManifest` for an ODC build. Note that build actions only apply to ODC — they have no effect in standalone Capacitor apps.
 
+### plugin-unifier
+
+Generates both sides of an OutSystems unified dual-stack plugin — the Capacitor plugin and the Cordova plugin — from a single agreed API spec. It orchestrates `cordova-plugin-migrator` and `capacitor-plugin-generator`, then overlays the OutSystems unified-plugin structure so both plugins expose identical method names, options, return shapes, and error codes.
+
+**Use when:** Generating a unified plugin for a feature, creating the Cordova and Capacitor sides together, generating the missing side when one already exists, or aligning two diverged plugins to a single API. Not for a standalone Capacitor plugin (use `capacitor-plugin-generator`) or a plain Cordova-to-Capacitor migration (use `cordova-plugin-migrator`).
+
 ## Installation
 
 Install skills directly from this repository using [skills.sh](https://skills.sh):
@@ -40,6 +46,7 @@ npx skills add ionic-team/capacitor-skills
 npx skills add ionic-team/capacitor-skills/capacitor-plugin-generator
 npx skills add ionic-team/capacitor-skills/cordova-plugin-migrator
 npx skills add ionic-team/capacitor-skills/build-actions-generator
+npx skills add ionic-team/capacitor-skills/plugin-unifier
 ```
 
 ## Local Development
