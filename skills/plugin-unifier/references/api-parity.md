@@ -40,6 +40,7 @@ For each method in the agreed API spec, verify:
 - [ ] `PermissionStatus` key names and `PermissionState` values are identical.
 - [ ] Error codes use the `OS-PLUG-<PLUGIN>-NNNN` format on both platforms and both plugins. Every `reject`/`error` call passes a structured `{ code, message }` object, never a plain string.
 - [ ] The same error codes are used for the same error conditions across both plugins.
+- [ ] Every optional option is defaulted in **native** code on both platforms (not only in the JS wrapper), and iOS option structs decode optionals with `decodeIfPresent` (a missing optional must not reject the call when Android tolerates it).
 
 ---
 
