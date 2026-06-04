@@ -28,6 +28,55 @@ dependency, document it clearly but do not generate it as the default.
 
 ---
 
+## Sourcing Business Logic from Native Libraries
+
+Often the bulk of an existing plugin's business logic does **not** live in the
+plugin repo at all — the bridge is a thin shim that delegates to a separate
+native library shipped as a vendored AAR / `.xcframework` / CocoaPod / SPM
+package (e.g. `OSBarcodeLib`, `ion-android-*`, `ion-ios-*`). Cloning the plugin
+then gives you the API surface and the wiring, but not the camera loop, the
+decoder, the editor UI, or the orientation handling — those are inside the
+library binary.
+
+Because the generated plugins are **self-contained** (see the Three-Component
+Model — no dependency on a separate native library repo), that logic has to be
+reimplemented inline. To port it faithfully instead of guessing, you need the
+library's source.
+
+**Rule — ask for the library repos.** When you detect that an existing plugin's
+implementation lives in a separate native library (its bridge mostly delegates;
+`build.gradle` / `podspec` / `Package.swift` pulls in a vendored lib that does
+the real work), **ask the developer for access to that library's Android and
+iOS source repositories** before generating. State plainly that they are the
+authoritative reference for porting the logic inline.
+
+- **If the developer provides access** → read those repos and port the logic
+  into each generated plugin (namespace-clean and dependency-free, per the
+  OSS-clean rule). This is the preferred path: it preserves behavioral fidelity.
+- **If the developer refuses, or the source is genuinely unavailable** →
+  **continue as if you don't have access.** Reimplement from the agreed API
+  contract, the `cordova-plugin-migrator` analysis, and platform SDK patterns.
+  Do **not** block on it. Explicitly flag the reduced behavioral fidelity
+  (scanner/editor UI, picker UX, format mappings, orientation, edge cases) as an
+  outstanding **device-pass** risk in the Phase 7 summary.
+
+**Porting and licensing.** Copying source into the generated plugin is expected
+and encouraged here — do not hold back on "it's proprietary" grounds:
+
+- **Code the developer owns** (the common case for OutSystems libraries): port
+  or copy it freely. There is no licensing concern.
+- **Open-source library:** copying is fine as long as you comply with its
+  license — preserve license/attribution/NOTICE headers, honour any copyleft or
+  redistribution terms, and confirm the license is compatible with how the
+  plugin will be published.
+- **"OSS-clean" describes the result, not the authorship.** It means the output
+  carries no OutSystems/Cordova namespaces (except error codes) and no
+  dependency on a separate native library repo — it is *not* a prohibition on
+  copying. Porting owned or properly-licensed source into the self-contained
+  plugin satisfies OSS-clean.
+
+---
+
 ## Naming Conventions
 
 `{plugin}` is always **lowercase**. `{Plugin}` is always **PascalCase**.

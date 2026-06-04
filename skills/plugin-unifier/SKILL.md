@@ -106,6 +106,14 @@ Therefore:
   — there is no Cordova generator skill to delegate to.)
 - Apply the unified structure overlay from `references/unified-structure.md` to
   both generated repos.
+- When an existing plugin's business logic lives in a **separate native library**
+  (its bridge mostly delegates to a vendored AAR / `.xcframework` / pod / SPM
+  package such as `OSBarcodeLib` or `ion-*`), **ask the developer for access to
+  that library's Android and iOS source repos** to use as the porting reference,
+  then port the logic inline. If they decline or the source is unavailable,
+  continue as if without it and flag the reduced behavioral fidelity. See
+  "Sourcing Business Logic from Native Libraries" in
+  `references/unified-structure.md`.
 - Verify API parity using the rules in `references/api-parity.md` before
   declaring Phase 1 complete.
 - After parity, run **Phase 6 native build verification** (`references/build-verification.md`):
@@ -140,6 +148,16 @@ Read `references/scenario-detection.md`. Determine which scenario applies:
 Invoking the migrator is mandatory whenever a Cordova plugin exists, even when
 you intend to redesign the API with the user afterward — its extracted surface,
 blockers, and warnings are the baseline the redesign is reconciled against.
+
+While detecting the scenario, also check **where the business logic lives**. If
+the existing plugin's native bridge mostly delegates to a separate native
+library (a vendored AAR / `.xcframework` / pod / SPM package — the migrator will
+typically flag the dependency), the cloned repo does **not** contain the real
+implementation. In that case ask the developer for access to the library's
+Android and iOS source repos to port from; if they decline or it is unavailable,
+continue without it and record the behavioral-fidelity gap for the Phase 7
+summary. See "Sourcing Business Logic from Native Libraries" in
+`references/unified-structure.md`.
 
 ### Phase 2: Confirm the API Spec
 
@@ -312,6 +330,12 @@ inline OML generation in the current high-code phase.
   and surface the artifact it returns. Do not re-implement their work inline.
 - ✅ Keep bridge files thin on both sides. Business logic goes in the impl
   class (`{Plugin}.kt`, `{Plugin}.swift`) with no framework imports.
+- ✅ When the real implementation lives in a separate native library, ask the
+  developer for its source repos and **port/copy it** rather than reimplementing
+  from scratch. Owned code ports freely; open-source code is fine to copy when
+  license-compliant. "OSS-clean" constrains the *result* (no OutSystems/Cordova
+  namespaces, no separate-lib dependency), not whether you may copy. If access
+  is refused, reimplement and flag the fidelity gap — don't block.
 - ✅ Verify API parity between both plugins before declaring Phase 1 complete.
 - ✅ **Verify each plugin with a real native build (Phase 6) before claiming
   "build-ready"** — a consuming-app `assembleDebug` + `xcodebuild`, not just the
@@ -362,6 +386,8 @@ inline OML generation in the current high-code phase.
 | Tempted to read `plugin.xml`/JS/native source yourself in Scenario 2/3 | Stop. Invoke `cordova-plugin-migrator` via the Skill tool instead — analyzing the source inline is prohibited. The migrator owns extraction. |
 | Tempted to run `npm init @capacitor/plugin` or write `definitions.ts`/bridges yourself in Phase 3 | Stop. Invoke `capacitor-plugin-generator` via the Skill tool in structured mode. Driving the CLI or writing the contract yourself is not a substitute. |
 | A required sub-skill is not available in the environment | Stop and tell the user the skill is missing; ask how to proceed. Do not silently fall back to doing its work inline. |
+| The existing plugin's bridge just delegates to a separate native library (vendored AAR / `.xcframework` / pod) — the real logic isn't in the cloned repo | Ask the developer for access to that library's Android and iOS source repos and port from them. If refused/unavailable, reimplement from the contract + migrator analysis + SDK patterns and flag the behavioral-fidelity gap for the device pass. See "Sourcing Business Logic from Native Libraries" in `references/unified-structure.md`. |
+| Unsure whether copying source is allowed | Owned code ports/copies freely; open-source copies fine when license-compliant (keep attribution, honour copyleft/compatibility). "OSS-clean" forbids OutSystems/Cordova namespaces and separate-lib dependencies, not copying. |
 | Scenario 3: APIs look identical but behavior differs | Check action name strings and option key casing — the most common silent mismatches. |
 | `cordova-plugin-migrator` returns blockers | Present blockers to the user. Decide whether to proceed with a reduced API surface or halt. |
 | `capacitor-plugin-generator` rejects the spec | Re-validate against `capacitor-plugin-generator/references/input-contract.md` before retrying. |
@@ -396,7 +422,9 @@ inline OML generation in the current high-code phase.
 - `references/scenario-detection.md`: The three generation scenarios, API spec
   confirmation format, and conflict resolution procedure for Scenario 3.
 - `references/unified-structure.md`: Directory structures, naming conventions,
-  OSS-clean rule, version targets, and the bridge/implementation separation rule.
+  OSS-clean rule, sourcing business logic from native libraries (asking for
+  library source + porting/licensing), version targets, and the
+  bridge/implementation separation rule.
 - `references/cordova-generation.md`: Full Cordova plugin generation rules and
   file templates (plugin.xml, www/js/, Android KT, iOS Swift).
 - `references/api-parity.md`: API parity rules enforced across both plugins.
