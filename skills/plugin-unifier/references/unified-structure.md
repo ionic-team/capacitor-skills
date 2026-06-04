@@ -175,11 +175,13 @@ cordova-outsystems-{plugin}/
     ├── android/
     │   ├── OS{Plugin}Plugin.kt      ← CordovaPlugin bridge
     │   ├── {Plugin}.kt              ← business logic (no Cordova imports)
+    │   ├── {OtherClass}.kt          ← helper classes, extensions, models, etc.
     │   └── test/
     │       └── {Feature}Tests.kt    ← unit tests
     └── ios/
         ├── OS{Plugin}Plugin.swift   ← CDVPlugin bridge
         ├── {Plugin}.swift           ← business logic (no Cordova imports)
+        └── {OtherClass}.swift       ← helper classes, extensions, models, etc.
         └── tests/
             └── {Feature}Tests.swift ← unit tests
 ```
