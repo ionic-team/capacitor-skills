@@ -282,8 +282,8 @@ plugins. Flag any discrepancy before proceeding.
 
 Read `references/build-verification.md`. **API parity (Phase 5) is static — it
 does not prove the native code compiles.** Before declaring the plugins
-build-ready, verify each one with a real native build in a throwaway consuming
-app, per the procedure in that reference:
+build-ready, verify each one with a real native build in a consuming app (persisted
+under `app-{stack}-{plugin}/`), per the procedure in that reference:
 
 - For each generated plugin, scaffold a minimal **consuming Capacitor app**
   (Capacitor-consuming-Capacitor for `capacitor-{plugin}`; Capacitor-consuming-
