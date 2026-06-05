@@ -181,7 +181,7 @@ cordova-outsystems-{plugin}/
     └── ios/
         ├── OS{Plugin}Plugin.swift   ← CDVPlugin bridge
         ├── {Plugin}.swift           ← business logic (no Cordova imports)
-        └── {OtherClass}.swift       ← helper classes, extensions, models, etc.
+        ├── {OtherClass}.swift       ← helper classes, extensions, models, etc.
         └── tests/
             └── {Feature}Tests.swift ← unit tests
 ```
