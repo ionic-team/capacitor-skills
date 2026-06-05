@@ -296,10 +296,10 @@ Do **not** silently claim a platform is build-ready when it was not built.
 
 Report, per plugin × platform:
 
-```
 capacitor-{plugin}:  Android assembleDebug ✅ | iOS xcodebuild ✅
-cordova-{plugin}:    Android assembleDebug ✅ | iOS xcodebuild ✅
+cordova-outsystems-{plugin}:    Android assembleDebug ✅ | iOS xcodebuild ✅
 Fixes applied during verification: <list>
+Not build-verified: <platforms skipped + why>
 Not build-verified: <platforms skipped + why>
 Device verification: OUTSTANDING — <flows that need a device>
 ```
