@@ -2,12 +2,18 @@
 
 API parity (Phase 5) and the TypeScript build are **static** checks — they do
 not prove the generated native code compiles, links, or merges its manifest.
-This phase compiles each generated plugin inside a throwaway **consuming app**,
-per platform, and fixes any failures before the plugins are declared build-ready.
+This phase compiles each generated plugin inside a **consuming app**, per
+platform, and fixes any failures before the plugins are declared build-ready.
 
 > Build verification ≠ device verification. A green build means the code
 > compiles and packages; it does **not** mean the feature behaves correctly at
 > runtime. Always record outstanding device-verification work in the summary.
+
+> **The consuming apps are persisted, not throwaway.** Write them to
+> `app-{stack}-{plugin}/` (the established repo
+> convention), one per stack, and leave them in place. The same app is reused
+> for the device pass, so it must survive the session — do **not** scaffold them
+> in `/tmp` or delete them once the build is green.
 
 ---
 
@@ -28,7 +34,10 @@ the `file:` dependency resolves.
 
 ## Per-app scaffold
 
-Minimal app (no framework needed — plain `www/`):
+Minimal app (no framework needed — plain `www/`). Both stacks use a **Capacitor**
+app — `app-cordova-{plugin}` is a Capacitor app that consumes the Cordova plugin
+through Capacitor's Cordova-compatibility layer, **not** a `cordova create`
+project:
 
 ```
 app-{stack}-{plugin}/
@@ -161,6 +170,13 @@ cd ios/App && xcodebuild -project App.xcodeproj -scheme App \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO
 ```
 
+Both builds run **inside the consuming app** — that is the point of the phase.
+The plugin's own `npm run verify:ios` (which builds the plugin's SPM scheme) and
+a standalone plugin `assembleDebug` are **not** substitutes: they compile the
+plugin in isolation and miss exactly the integration defects this phase exists
+to catch (manifest-merge collisions, Cordova-compat wiring, host-app
+`Package.swift` rewrite, plugin-registration). Always build the App target/scheme.
+
 If a build fails, **fix the generated plugin** (not the app), re-run, and repeat
 until green. `file:` deps are symlinked, so plugin edits are picked up without
 re-installing (re-run `npx cap sync` only when manifest/plugin metadata changes).
@@ -212,6 +228,31 @@ The shipped (committed) form keeps `apache/cordova-ios` for standalone MABS SPM
 builds; Capacitor re-adapts it to `ionic-team/capacitor-swift-pm` locally on
 each sync. *(Observed on Capacitor 8.x — these are CLI implementation details
 (`@capacitor/cli` `util/spm.js`, `ios/update.js`); re-verify on future majors.)*
+
+---
+
+## Anti-patterns (do NOT do these)
+
+These shortcuts look reasonable and faster but defeat the purpose of the phase —
+they are explicitly disallowed:
+
+- ❌ **Verifying the Cordova plugin with a standalone `cordova create` app.**
+  The Cordova plugin must be verified as the `app-cordova-{plugin}` **Capacitor**
+  app consuming it through the Cordova-compat layer — that is the real
+  consumption path (Capacitor apps and ODC), and it is the only way the
+  `capacitor-cordova-*-plugins` bridging, the `Package.swift` rewrite, and the
+  manifest merge are exercised. A plain Cordova build proves nothing about how
+  the plugin behaves where it is actually consumed.
+- ❌ **Substituting the plugin's own build for a consuming-app build.** Running
+  `npm run verify:ios` (the plugin's SPM scheme) or a standalone plugin
+  `assembleDebug` compiles the plugin in isolation. It does not surface
+  integration defects (FileProvider/manifest-merge collisions, plugin
+  registration, Cordova-compat wiring). Always build the App target/scheme in
+  the consuming app.
+- ❌ **Scaffolding the apps in `/tmp` or deleting them after the build.** They
+  are persisted and reused for the device pass (see the note at the top of this file).
+- ❌ **Claiming a platform is build-ready without having run its consuming-app
+  build.** Record skipped platforms explicitly (see "Graceful degradation").
 
 ---
 
