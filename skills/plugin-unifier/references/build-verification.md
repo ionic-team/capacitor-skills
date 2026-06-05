@@ -300,6 +300,5 @@ capacitor-{plugin}:  Android assembleDebug ✅ | iOS xcodebuild ✅
 cordova-outsystems-{plugin}:    Android assembleDebug ✅ | iOS xcodebuild ✅
 Fixes applied during verification: <list>
 Not build-verified: <platforms skipped + why>
-Not build-verified: <platforms skipped + why>
 Device verification: OUTSTANDING — <flows that need a device>
 ```
