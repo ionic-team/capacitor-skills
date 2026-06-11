@@ -3,6 +3,10 @@
 Generate or update a sample app that exercises the entire plugin API. The sample
 app is part of validation, not marketing.
 
+Read `repository-context.md` before running commands. Use the repository's
+required package manager for local validation, while keeping public docs on the
+standard command style when instructed.
+
 ## Requirements
 
 - Install the generated plugin from the local plugin path.
@@ -38,6 +42,8 @@ npm start
 Use `npx cap sync` after installing the local plugin or changing plugin native
 code, dependencies, permissions, or Capacitor config. Use `npx cap copy` only
 for web-only sample app changes after the native platforms are already synced.
+In Bun-enforced repositories, use `bun install`, `bunx cap sync`, and the
+repository's Bun start script instead.
 
 ## Native Demo Commands
 
