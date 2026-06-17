@@ -53,13 +53,15 @@ These are all **invalid** and will fail validation:
 This is the **only valid form**:
 
 ```json
-"condition": "ne($COLOR, \"\")"
+"condition": "ne($COLOR, red)"
 ```
+
+> **Do not quote string literals in conditions.** The build system performs variable interpolation before parsing the condition — `$VAR` is replaced with its raw value first, then the expression is parsed. Any surrounding quote characters you write become part of the parsed argument string. For example, `eq($MODE, "prod")` after interpolation becomes `eq(prod, "prod")` — the parser sees `args[1]` as `"prod"` (with literal quote characters), which never equals `prod`, so the condition is always false. Write bare values: `eq($MODE, prod)`.
 
 | Operator | Meaning | Example |
 |----------|---------|---------|
-| `eq(a, b)` | equal | `eq($MODE, "prod")` |
-| `ne(a, b)` | not equal | `ne($ENV, "dev")` |
+| `eq(a, b)` | equal | `eq($MODE, prod)` |
+| `ne(a, b)` | not equal | `ne($ENV, dev)` |
 | `gt(a, b)` | greater than | `gt($VERSION, 10)` |
 | `ge(a, b)` | greater than or equal | `ge($COUNT, 0)` |
 | `lt(a, b)` | less than | `lt($TIMEOUT, 60)` |

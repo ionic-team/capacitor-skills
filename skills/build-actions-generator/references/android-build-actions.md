@@ -57,6 +57,8 @@ requiring a `file` field. Exactly one operation per entry.
 `target` is an XPath-like path (e.g. `"manifest"`, `"manifest/application"`).
 `delete` uses a full XPath expression directly (e.g. `"//intent-filter"`).
 
+> **`merge` fragments must be rooted at the target element.** The fragment's root tag must match the `target` node — e.g. `target: "manifest"` → root is `<manifest>`, `target: "manifest/application"` → root is `<application>`. Passing a bare child element (e.g. a naked `<uses-permission />` with `target: "manifest"`) causes `xmldom` to attempt inserting it as a sibling to the document root, which is illegal XML and produces a hierarchy error at build time.
+
 > **`attrs` values must be strings.** Boolean and number variable references are not valid in `attrs` and will fail validation. To set an attribute to a boolean or numeric value, use `inject` or `merge` with the full XML element instead.
 
 ```json
@@ -70,7 +72,7 @@ requiring a `file` field. Exactly one operation per entry.
     {
       "file": "AndroidManifest.xml",
       "target": "manifest",
-      "merge": "<uses-permission android:name=\"android.permission.CAMERA\" />\n"
+      "merge": "<manifest>\n  <uses-permission android:name=\"android.permission.CAMERA\" />\n</manifest>"
     },
     {
       "file": "AndroidManifest.xml",

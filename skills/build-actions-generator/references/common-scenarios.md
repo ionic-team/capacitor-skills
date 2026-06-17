@@ -95,7 +95,7 @@ non-default value since the entry is only relevant in that one state.
       "file": "AndroidManifest.xml",
       "condition": "eq($ANALYTICS_COLLECTION_ENABLED, false)",
       "target": "manifest/application",
-      "merge": "<meta-data android:name=\"firebase_analytics_collection_enabled\" android:value=\"false\" />\n"
+      "merge": "<application>\n  <meta-data android:name=\"firebase_analytics_collection_enabled\" android:value=\"false\" />\n</application>"
     }
   ]
 }
