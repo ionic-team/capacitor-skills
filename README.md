@@ -4,7 +4,7 @@ A catalog of agent skills for working with Capacitor.
 
 ## Overview
 
-This repository contains agent skills focused on the Capacitor development lifecycle. Currently, it includes skills specific to plugins: generating first-pass net-new plugins, migrating existing Cordova plugins to Capacitor, and configuring OutSystems Developer Cloud (ODC) build actions for plugins.
+This repository contains agent skills focused on the Capacitor development lifecycle: generating first-pass net-new plugins, migrating existing Cordova plugins to Capacitor, configuring OutSystems Developer Cloud (ODC) build actions for plugins, and migrating Capacitor apps to the 8.5 UIScene lifecycle.
 
 The skills are written to be agent-agnostic. They package domain knowledge, best practices, and repeatable workflows as plain instructions and reference material, so any agent that supports the [skills](https://skills.sh) format can use them.
 
@@ -28,6 +28,12 @@ Generates OutSystems Developer Cloud (ODC) build action JSON files that configur
 
 **Use when:** Creating a build action for an ODC plugin, generating a `buildAction.json` file, setting up Gradle or plist build actions, or configuring `AndroidManifest` for an ODC build. Note that build actions only apply to ODC — they have no effect in standalone Capacitor apps.
 
+### capacitor-uiscene-migrator
+
+Assists with the Capacitor 8.4 → 8.5 UIScene migration for iOS, covering what `npx cap migrate` skips or only warns about: partially migrated projects, hand-rolled scene delegates, and custom `application(_:open:)` bodies. It audits before editing, asks at judgement points, merges into existing files instead of overwriting them, and hands template-shaped projects to the CLI migrator.
+
+**Use when:** Migrating a Capacitor 8.x iOS app to the UIScene lifecycle, finishing a migration the CLI skipped as partial, or auditing a Capacitor plugin for UIScene compatibility. Scope is 8.4 → 8.5 only.
+
 ## Installation
 
 Install skills directly from this repository using [skills.sh](https://skills.sh):
@@ -40,6 +46,7 @@ npx skills add ionic-team/capacitor-skills
 npx skills add ionic-team/capacitor-skills/capacitor-plugin-generator
 npx skills add ionic-team/capacitor-skills/cordova-plugin-migrator
 npx skills add ionic-team/capacitor-skills/build-actions-generator
+npx skills add ionic-team/capacitor-skills/capacitor-uiscene-migrator
 ```
 
 ## Local Development
@@ -71,6 +78,7 @@ Once installed, the skills become available to your agent and activate based on 
 "Migrate this Cordova plugin to Capacitor"
 "Assess the migration feasibility of cordova-plugin-camera"
 "Create an ODC build action for my Capacitor plugin"
+"Migrate my Capacitor app to UIScene"
 ```
 
 The relevant skill activates automatically when your request matches what it handles.
