@@ -3,6 +3,29 @@
 Use the official Capacitor plugin generator as the starting point unless the
 user is updating an already-scaffolded plugin.
 
+Read `repository-context.md` first. The commands below are standard public
+Capacitor examples. If the target repository requires Bun or another package
+manager, translate commands before executing them.
+
+## Repository Template Flow
+
+If the target repository provides its own plugin template bootstrap, use that
+before falling back to the official generator. For Capgo plugin template repos,
+run:
+
+```bash
+bun run init-plugin <plugin-slug> [ClassName] [app.capgo.packageid] [GitHubOrg] [android-lang]
+```
+
+Example:
+
+```bash
+bun run init-plugin downloader CapacitorDownloader app.capgo.downloader Cap-go kotlin
+```
+
+Then apply the repository's post-bootstrap cleanup instructions before adding
+plugin logic.
+
 ## Command
 
 Prefer non-interactive flags:
@@ -22,6 +45,19 @@ Equivalent direct form:
 
 ```bash
 npx @capacitor/create-plugin@latest <plugin-directory> \
+  --name "<npm-package-name>" \
+  --package-id "<android.package.id>" \
+  --class-name "<PluginClassName>" \
+  --repo "<repository-url>" \
+  --author "<author-name-or-email>" \
+  --license "<SPDX-license>" \
+  --description "<one-line description>"
+```
+
+For Bun-enforced repositories, execute the direct form with `bunx`:
+
+```bash
+bunx @capacitor/create-plugin@latest <plugin-directory> \
   --name "<npm-package-name>" \
   --package-id "<android.package.id>" \
   --class-name "<PluginClassName>" \
@@ -107,6 +143,14 @@ Run:
 cd <plugin-directory>
 npm install
 npm run verify
+```
+
+In Bun-enforced repositories, run:
+
+```bash
+cd <plugin-directory>
+bun install
+bun run verify
 ```
 
 If a native toolchain is unavailable, run the platform-specific checks that are

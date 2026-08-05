@@ -2,6 +2,11 @@
 
 Complete guide for configuring Capacitor plugins including build systems, dependencies, and project structure.
 
+Read `repository-context.md` before running commands. The package scripts shown
+here are standard Capacitor examples. Execute them through the target
+repository's required runner, such as `bun run verify` in Bun-enforced
+repositories.
+
 ## Package Configuration
 
 ### package.json

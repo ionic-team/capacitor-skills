@@ -3,6 +3,11 @@
 Generated plugins are candidates for review. This skill may run publishing
 checks and dry runs, but must not publish for real.
 
+Read `repository-context.md` before running commands. Public npm package
+documentation should keep standard `npm` snippets unless the project says
+otherwise, but commands executed inside a repository must use that repository's
+required package manager.
+
 ## Package Fields
 
 Verify `package.json` contains:
@@ -45,6 +50,9 @@ npm run docgen
 npm run verify
 ```
 
+Use repository-specific equivalents when required, such as `bun run fmt`,
+`bun run lint`, `bun run build`, `bun run docgen`, and `bun run verify`.
+
 Check:
 
 - No placeholder package names, repo URLs, authors, or descriptions.
@@ -61,4 +69,15 @@ Check:
 npm publish --access public --dry-run
 ```
 
-Do not run a real `npm publish` from this skill.
+Do not run a real `npm publish` from this skill. If repository instructions
+forbid running `npm` commands and no Bun-compatible publish dry run or
+repository publish-check script exists, skip the dry run and report that it is
+blocked by local command policy.
+
+## Pull Request Release Workflow
+
+If the target repository requires draft PRs until CI passes, keep the PR draft
+after pushing, monitor CI, fix failures, rerun checks, and only mark it ready
+when CI passes. Address automated review comments after any "review in progress"
+state is gone, resolve the comments, and rerun checks before final status. If CI
+or review state is not observable, say so and keep the PR draft.

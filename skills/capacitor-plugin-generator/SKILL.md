@@ -47,7 +47,7 @@ architecture, but it is a first pass that requires human review before release.
 
 | Requirement | Use |
 | --- | --- |
-| Node.js LTS and npm | Run the Capacitor plugin generator and package scripts. |
+| Node.js LTS and the target repo package manager | Run the Capacitor plugin generator and package scripts. |
 | Xcode | Build and verify iOS output when iOS is targeted. |
 | Android Studio and Android SDK | Build and verify Android output when Android is targeted. |
 | CocoaPods and Gradle | Resolve native dependencies when required by generated code. |
@@ -56,6 +56,9 @@ architecture, but it is a first pass that requires human review before release.
 ## Agent Behavior
 
 - Detect whether the user provided conversational intent or structured YAML.
+- Read `references/repository-context.md` before running commands. Honor
+  repository-local instructions such as `AGENTS.md`, package-manager policy,
+  browser automation policy, PR/CI workflow, and token handling.
 - In conversational mode, ask only for missing plugin identity, methods,
   platforms, events, permissions, configuration, and native dependencies.
 - In structured mode, parse `references/input-contract.md`, skip elicitation,
@@ -64,6 +67,10 @@ architecture, but it is a first pass that requires human review before release.
   analyze Cordova source; that belongs to the migration skill.
 - Prefer the official Capacitor plugin generator, then edit the generated
   scaffold to implement the requested API.
+- When the target repository provides its own plugin template bootstrap, use
+  that template flow first. For Bun-enforced Capgo plugin repositories, execute
+  local commands with `bun`, `bun run`, or `bunx`; keep `npm`/`npx` snippets for
+  public documentation only when local instructions require that convention.
 - Keep generated code contract-first: TypeScript definitions drive web, iOS,
   Android, docs, and sample app behavior.
 - Use only Capacitor classes that exist in the installed `@capacitor/core`,
@@ -85,10 +92,19 @@ architecture, but it is a first pass that requires human review before release.
   `requestPermissions()` flow and document the manual setup.
 - Clearly report which verification commands were run and which need local
   human/device validation.
-- Never publish for real from this skill. Run publish checks and `npm publish
-  --access public --dry-run` only.
+- Do not replace real user-provided tokens, API keys, or secrets with
+  placeholders unless the user explicitly asks.
+- Never publish for real from this skill. Run publish checks and dry-run
+  package checks only.
 
 ## Procedures
+
+### Phase 0: Read Repository Context
+
+Read `references/repository-context.md` and any local repository instructions
+before choosing commands or editing files. Translate the generic `npm`/`npx`
+examples in this skill to the repository's required package manager when
+needed.
 
 ### Phase 1: Determine the Task and Entry Mode
 
@@ -99,8 +115,9 @@ same contract shape internally.
 
 ### Phase 2: Scaffold
 
-Read `references/scaffolding.md`. Run the official Capacitor plugin generator
-with non-interactive flags when possible. Enforce name parity:
+Read `references/scaffolding.md`. Run the repository template flow or the
+official Capacitor plugin generator with non-interactive flags when possible.
+Enforce name parity:
 `registerPlugin()` JavaScript name equals iOS `jsName` equals Android
 `@CapacitorPlugin(name)`.
 
@@ -147,15 +164,16 @@ permissions, configuration, and listeners.
 ### Phase 9: Docgen and Verify
 
 Read `references/testing-strategies.md` and `references/publishing.md`.
-Generate API docs from JSDoc with `npm run docgen`; do not hand-write API docs.
+Generate API docs from JSDoc with the repository's script runner (for example,
+`npm run docgen` or `bun run docgen`); do not hand-write API docs.
 Run the relevant verify commands for targeted platforms and record any
 environment-limited checks.
 
 ### Phase 10: Publish Checks
 
-Read `references/publishing.md`. Run the pre-publish checklist and dry run:
-`npm publish --access public --dry-run`. Do not publish the generated plugin
-without explicit human review outside this skill.
+Read `references/publishing.md`. Run the pre-publish checklist and a dry-run
+publish/package check allowed by the repository command policy. Do not publish
+the generated plugin without explicit human review outside this skill.
 
 ## Best Practices
 
@@ -163,6 +181,8 @@ without explicit human review outside this skill.
 
 - ✅ Use command-line flags with `npm init @capacitor/plugin` so the
   scaffolder runs non-interactively.
+- ✅ Translate generic command examples through the target repository's
+  package-manager policy before executing them.
 - ✅ Detect entry mode (conversational vs structured YAML) before asking
   questions. Skip elicitation entirely in structured mode.
 - ✅ Design the TypeScript API first (contract-first), then implement
@@ -174,7 +194,8 @@ without explicit human review outside this skill.
   than reimplementing.
 - ✅ Document every public symbol with JSDoc and `@since`.
 - ✅ Run `npm run fmt` before committing and `npm run verify` before
-  reporting completion.
+  reporting completion, or the repository-specific equivalents such as
+  `bun run fmt` and `bun run verify`.
 - ✅ Use the two-class pattern (bridge + implementation) on iOS and
   Android for testability.
 - ✅ Match wire-format string and numeric values exactly when mirroring
@@ -197,8 +218,9 @@ without explicit human review outside this skill.
   `@capacitor/ios` packages.
 - ❌ Call `notifyListeners(...)` from outside the `Plugin` subclass —
   see `references/architecture-patterns.md` "Event Dispatch Locality".
-- ❌ Publish from this skill. Run dry-run only with
-  `npm publish --access public --dry-run`.
+- ❌ Publish from this skill. Run dry-run package checks only.
+- ❌ Ignore local repository instructions for package managers, headless
+  browser use, CI/PR workflow, or secret handling.
 - ❌ Inspect or analyze Cordova source — that belongs to the sibling
   migration skill.
 
@@ -206,13 +228,14 @@ without explicit human review outside this skill.
 
 | Symptom | Fix |
 | --- | --- |
-| `npm init @capacitor/plugin` fails with `Refusing to prompt in non-TTY environment` | Pass all required flags non-interactively: `npm init @capacitor/plugin <folder> -- --name "<npm-name>" --package-id "<reverse-dns>" --class-name "<PascalCase>" --description "<one-line>" --author "<name <email>>" --license "<SPDX>" --repo "<url>" --android-lang "<kotlin\|java>"`. See `references/scaffolding.md`. |
+| `npm init @capacitor/plugin` fails with `Refusing to prompt in non-TTY environment` | Pass all required flags non-interactively: `npm init @capacitor/plugin <folder> -- --name "<npm-name>" --package-id "<reverse-dns>" --class-name "<PascalCase>" --description "<one-line>" --author "<name <email>>" --license "<SPDX>" --repo "<url>" --android-lang "<kotlin\|java>"`. Use `bunx @capacitor/create-plugin@latest ...` instead when the target repo requires Bun. See `references/scaffolding.md`. |
 | `npm init @capacitor/plugin` fails with `invalid option: --android-lang undefined: Must be either 'kotlin' or 'java'` | The `--android-lang` flag is required when running non-interactively. Add `--android-lang "kotlin"` (recommended for new plugins) or `--android-lang "java"` to the command. |
+| A repository instruction forbids `npm` or `npx` | Translate commands through `references/repository-context.md`; for Bun-enforced repositories use `bun`, `bun run`, and `bunx`. |
 | Plugin silently fails to load | Make `registerPlugin()` name match iOS `jsName` and Android `@CapacitorPlugin(name)`. |
 | Event not received in JS | Make the event name string identical across TypeScript, web, iOS, and Android. |
 | iOS method not callable from JS | Ensure the method is marked `@objc` and listed in `pluginMethods`. |
 | Android method not callable from JS | Ensure the method is public and annotated with `@PluginMethod()`. |
-| `npm run verify:ios` fails | Run `pod install --repo-update`; then rerun the iOS verify command. |
+| `npm run verify:ios` fails | Run `pod install --repo-update`; then rerun the iOS verify command, translated through repository command policy if needed. |
 | `npm run verify:android` fails | Sync Gradle and check Android SDK, compile SDK, and dependency versions. |
 | Android compile error: `class X is public, should be declared in a file named X.java` | Java requires a public class to live in a file matching its name. When generating multiple Java classes per plugin, place each public class in its own file. Kotlin does not impose this rule. |
 | Android compile error: `notifyListeners(...) has protected access in Plugin` | `notifyListeners()` is `protected` on `Plugin`. Call it only from inside a class that extends `Plugin`. If another class needs to emit events, return the data to the plugin and dispatch there, or expose a public wrapper on the plugin that calls `notifyListeners()` internally. |
@@ -234,6 +257,7 @@ without explicit human review outside this skill.
 ## References
 
 - `references/input-contract.md`: Structured YAML contract for generator input.
+- `references/repository-context.md`: Local instruction discovery, command runner selection, Capgo template flow, PR/CI workflow, and secret handling.
 - `references/scaffolding.md`: Generator invocation, name parity, and scaffold verification.
 - `references/api-design.md`: TypeScript API design, JSDoc, event signatures, and method return types.
 - `references/web-guide.md`: WebPlugin patterns, dynamic import, feature detection, and errors.

@@ -2,6 +2,11 @@
 
 Comprehensive guide for testing Capacitor plugins across all layers: TypeScript, web, iOS, and Android.
 
+Read `repository-context.md` before running commands. The examples in this file
+use standard npm/npx commands for public Capacitor documentation. In a
+Bun-enforced repository, execute the equivalent `bun`, `bun run`, or `bunx`
+commands instead.
+
 ## Testing Pyramid
 
 ```
